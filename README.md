@@ -1,6 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
+```bash
+npm instal 
+#or
+yarn install
+```
+
+buat storage database pada vercel using neon 
+dan buka sample.env dan isi envnya
+
+buat database pakai prisma jalankan perintah di bawah 
+```bash
+npx prisma generate 
+
+npx prisma migrate dev --name init
+
+npx prisma studio
+```
 
 First, run the development server:
 
