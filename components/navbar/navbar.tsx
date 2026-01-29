@@ -11,7 +11,7 @@ const Navbar = () => {
           className="text-2xl font-bold flex flex-row items-center gap-4 px-40"
         >
           <Image src="/vector.png" width={49} height={49} alt="logo" priority />
-          <h1>HotelKu</h1>
+          <h1>RuangKu</h1>
         </Link>
         <div className="flex items-center ml-auto">
           <Navlink />

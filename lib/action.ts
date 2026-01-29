@@ -25,7 +25,7 @@ export const ContactMessage = async (
         message,
       },
     });
-    return { message: "Thanks for contact us" };
+    return { message: "Thanks for contact us"};
   } catch (error) {
     console.log(error);
   }

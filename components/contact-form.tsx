@@ -10,10 +10,10 @@ const ContactForm: FC = () => {
     <div className="bg-white p-8 rounded-sm shadow-sm">
       {state?.message ? (
         <div
-          className="p-4 mb-4 text-sm text-gray-800 rounded-lg bg-gray-50"
+          className="p-4 mb-4 text-sm  bg-green-100 rounded-lg  dark:text-green-800 shadow-sm border border-green-200"
           role="alert"
         >
-          <div className="font-medium">{state.message}</div>
+          <div className="text-medium">{state.message}</div>
         </div>
       ) : null}
       <form action={FormAction}>
@@ -22,7 +22,7 @@ const ContactForm: FC = () => {
             <input
               type="text"
               name="name"
-              className="bg-gray-50 p-3 border-gray-200 rounded-sm w-full font-light"
+              className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
               placeholder="Name*"
             />
             <div aria-live="polite" aria-atomic="true">
@@ -33,7 +33,7 @@ const ContactForm: FC = () => {
             <input
               type="email"
               name="email"
-              className="bg-gray-50 p-3 border-gray-200 rounded-sm w-full font-light"
+              className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
               placeholder="example@gmail.com*"
             />
             <div aria-live="polite" aria-atomic="true">
@@ -44,7 +44,7 @@ const ContactForm: FC = () => {
             <input
               type="text"
               name="subject"
-              className="bg-gray-50 p-3 border-gray-200 rounded-sm w-full font-light"
+              className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
               placeholder="Subject*"
             />
             <div aria-live="polite" aria-atomic="true">
@@ -57,7 +57,7 @@ const ContactForm: FC = () => {
             <textarea
               name="message"
               rows={5}
-              className="bg-gray-50 p-3 border-gray-200 rounded-sm w-full font-light"
+              className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
               placeholder="Put Your Message*"
             ></textarea>
             <div aria-live="polite" aria-atomic="true">
@@ -73,7 +73,7 @@ const ContactForm: FC = () => {
             "px-10 text-center mt-4 py-4 font-semibold text-white w-full bg-orange-400 rounded-sm hover:bg-orange-500 cursor-pointer",
             {
               "opacity-50 cursor-progress animate-pulse": isPending,
-            }
+            },
           )}
           disabled={isPending}
         >
