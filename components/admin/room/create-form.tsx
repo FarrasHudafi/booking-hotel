@@ -1,11 +1,14 @@
 "use client";
 
 import { FC, useRef, useState, useTransition } from "react";
+import { useActionState } from "react";
 import { IoCloudUploadOutline, IoTrashOutline } from "react-icons/io5";
 import { type PutBlobResult } from "@vercel/blob";
 import Image from "next/image";
 import { BarLoader } from "react-spinners";
 import { Amenities } from "@prisma/client";
+import { saveRoom } from "@/lib/action";
+import { clsx } from "clsx";
 
 /**
  * CreateForm Component
@@ -68,8 +71,13 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
     });
   };
 
+  const [state, formAction, isPending] = useActionState(
+    saveRoom.bind(null, image),
+    null,
+  );
+
   return (
-    <form action="">
+    <form action={formAction}>
       {/* Grid 12 kolom: 8 untuk form inputs, 4 untuk upload & actions */}
       <div className="grid md:grid-cols-12 gap-5">
         {/* LEFT SECTION - Form Inputs */}
@@ -83,7 +91,9 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
               className="py-2 px-4 rounded-md border border-gray-400 w-full"
             />
             <div aria-live="polite" aria-atomic="true">
-              <span className="text-sm text-red-500 mt-2">Message</span>
+              <span className="text-sm text-red-500 mt-2">
+                {state?.error?.name}
+              </span>
             </div>
           </div>
 
@@ -96,7 +106,9 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
               className="py-2 px-4 rounded-md border border-gray-400 w-full"
             ></textarea>
             <div aria-live="polite" aria-atomic="true">
-              <span className="text-sm text-red-500 mt-2">Message</span>
+              <span className="text-sm text-red-500 mt-2">
+                {state?.error?.description}
+              </span>
             </div>
           </div>
 
@@ -118,7 +130,9 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
               </div>
             ))}
             <div aria-live="polite" aria-atomic="true">
-              <span className="text-sm text-red-500 mt-2">Message</span>
+              <span className="text-sm text-red-500 mt-2">
+                {state?.error?.amenities}
+              </span>
             </div>
           </div>
         </div>
@@ -189,7 +203,9 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
               className="py-2 px-4 rounded-md border border-gray-400 w-full"
             />
             <div aria-live="polite" aria-atomic="true">
-              <span className="text-sm text-red-500 mt-2">Message</span>
+              <span className="text-sm text-red-500 mt-2">
+                {state?.error?.capacity}
+              </span>
             </div>
           </div>
 
@@ -202,16 +218,31 @@ const CreateForm = ({ amenities }: { amenities: Amenities[] }) => {
               className="py-2 px-4 rounded-md border border-gray-400 w-full"
             />
             <div aria-live="polite" aria-atomic="true">
-              <span className="text-sm text-red-500 mt-2">Message</span>
+              <span className="text-sm text-red-500 mt-2">
+                {state?.error?.price}
+              </span>
             </div>
           </div>
-
+          {/* General Message */}
+          {state?.message ? (
+            <div className=" p-1 text-red-500 mb-4">
+              <span className="text-[15px] font-medium mt-2">
+                {state.message}
+              </span>
+            </div>
+          ) : null}
           {/* Submit Button */}
           <button
             type="submit"
-            className="bg-orange-400 text-white px-6 rounded-md w-full hover:bg-orange-500 py-2.5 md:px-10 text-lg font-semi-bold cursor-pointer text"
+            className={clsx(
+              "bg-orange-400 text-white px-6 rounded-md w-full hover:bg-orange-500 py-2.5 md:px-10 text-lg font-semi-bold cursor-pointer text",
+              {
+                "opacity-50 cursor-not-allowed": isPending,
+              },
+            )}
+            disabled={isPending}
           >
-            Save
+            {isPending ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

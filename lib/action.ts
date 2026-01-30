@@ -1,13 +1,14 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { ContactSchema } from "@/lib/zod";
+import { ContactSchema, RoomSchema } from "@/lib/zod";
+import { redirect } from "next/navigation";
 
 export const ContactMessage = async (
   prevState: unknown,
-  FormData: FormData
+  FormData: FormData,
 ) => {
   const validateFields = ContactSchema.safeParse(
-    Object.fromEntries(FormData.entries())
+    Object.fromEntries(FormData.entries()),
   );
 
   if (!validateFields.success) {
@@ -25,8 +26,53 @@ export const ContactMessage = async (
         message,
       },
     });
-    return { message: "Thanks for contact us"};
+    return { message: "Thanks for contact us" };
   } catch (error) {
     console.log(error);
   }
+};
+
+export const saveRoom = async (
+  image: string,
+  prevState: unknown,
+  FormData: FormData,
+) => {
+  if (!image) {
+    return { message: "Image is required" };
+  }
+  const rawData = {
+    name: FormData.get("name"),
+    description: FormData.get("description"),
+    capacity: FormData.get("capacity"),
+    price: FormData.get("price"),
+    amenities: FormData.getAll("amenities"),
+  };
+  const validateFields = RoomSchema.safeParse(rawData);
+  if (!validateFields.success) {
+    return { error: validateFields.error.flatten().fieldErrors };
+  }
+
+  const { name, description, capacity, price, amenities } = validateFields.data;
+
+  try {
+    await prisma.room.create({
+      data: {
+        name,
+        description,
+        image,
+        capacity,
+        price,
+        RoomAmenities: {
+          createMany: {
+            data: amenities.map((item) => ({
+              amenityId: item,
+            })),
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.log(error);
+  }
+  redirect("/admin/room");
 };
