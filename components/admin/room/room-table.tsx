@@ -1,6 +1,7 @@
 import { getRoom } from "@/lib/data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Image from "next/image";
+import { DeleteButton, EditButton } from "@/components/admin/room/button";
 const RoomTable = async () => {
   const rooms = await getRoom();
   if (!rooms?.length) return <div>No Room Found</div>;
@@ -46,7 +47,12 @@ const RoomTable = async () => {
               <td className="px-6 py-4">
                 {formatDate(room.createdAt.toString())}
               </td>
-              <td className="px-6 py-4 text-right"></td>
+              <td className="px-6 py-4 text-right">
+                <div className="flex items-center justify-center gap-1 border-r">
+                  <EditButton id={room.id} />
+                  <DeleteButton id={room.id} image={room.image} />
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
