@@ -83,6 +83,8 @@ const EditForm = ({
     null,
   );
 
+  const checkedAmenities = room.RoomAmenities.map((item) => item.amenityId);
+
   return (
     <form action={formAction}>
       {/* Grid 12 kolom: 8 untuk form inputs, 4 untuk upload & actions */}
@@ -130,6 +132,7 @@ const EditForm = ({
                   type="checkbox"
                   name="amenities"
                   defaultValue={item.id}
+                  defaultChecked={checkedAmenities.includes(item.id)}
                   placeholder="Room name"
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                 />
