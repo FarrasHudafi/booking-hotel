@@ -7,7 +7,7 @@ import { type PutBlobResult } from "@vercel/blob";
 import Image from "next/image";
 import { BarLoader } from "react-spinners";
 import { Amenities } from "@prisma/client";
-import { saveRoom } from "@/lib/action";
+import { updateRoom } from "@/lib/action";
 import { clsx } from "clsx";
 import { RoomProp } from "@/types/room";
 
@@ -79,7 +79,7 @@ const EditForm = ({
   };
 
   const [state, formAction, isPending] = useActionState(
-    saveRoom.bind(null, image),
+    updateRoom.bind(null, image, room.id),
     null,
   );
 
