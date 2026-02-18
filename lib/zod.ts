@@ -11,10 +11,18 @@ export const ContactSchema = object({
     .max(200, "Message must be less than 200 characters"),
 });
 
-export const  RoomSchema = object({
+export const RoomSchema = object({
   name: string().min(1, "Name is required"),
-  description: string().min(50, "Fill the description with at least 50 characters"),
+  description: string().min(
+    50,
+    "Fill the description with at least 50 characters",
+  ),
   capacity: coerce.number().gt(0, "Fill with a valid number"),
   price: coerce.number().gt(0, "Fill with a valid number"),
   amenities: array(string()).nonempty("Select at least one amenity"),
-})
+});
+
+export const ReserveSchema = object({
+  name: string().min(1, "Name is required"),
+  phone: string().min(10, "Fill with a valid phone number"),
+});
