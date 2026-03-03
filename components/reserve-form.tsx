@@ -1,10 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useActionState } from "react";
 import { addDays } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { createReserve } from "@/lib/action";
+import { RoomDetailProp } from "@/types/room";
+import clsx from "clsx";
 
-const ReserveForm = () => {
+const ReserveForm = ({ room }: { room: RoomDetailProp }) => {
   const StartDate = new Date();
   const EndDate = addDays(StartDate, 1);
 
@@ -16,9 +19,15 @@ const ReserveForm = () => {
     setStartDate(start);
     setEndDate(end);
   };
+
+  const [state, formAction, isPending] = useActionState(
+    createReserve.bind(null, room.id, room.price, startDate, endDate),
+    null,
+  );
+
   return (
     <div>
-      <form action="">
+      <form action={formAction}>
         <div className="mb-4">
           <label
             htmlFor="checkin"
@@ -38,7 +47,7 @@ const ReserveForm = () => {
             className="py-2 px-4 rounded-md border border-gray-300 w-full"
           />
           <div aria-live="polite" aria-atomic="true">
-            <p className="mt-2 text-sm text-red-500">Message</p>
+            <p className="mt-2 text-sm text-red-500">{state?.messageDate}</p>
           </div>
         </div>
         <div className="mb-4">
@@ -55,7 +64,7 @@ const ReserveForm = () => {
             placeholder="Full Name..."
           />
           <div aria-live="polite" aria-atomic="true">
-            <p className="mt-2 text-sm text-red-500">Message</p>
+            <p className="mt-2 text-sm text-red-500">{state?.error?.name}</p>
           </div>
         </div>
         <div className="mb-4">
@@ -72,14 +81,18 @@ const ReserveForm = () => {
             placeholder="Phone Number..."
           />
           <div aria-live="polite" aria-atomic="true">
-            <p className="mt-2 text-sm text-red-500">Message</p>
+            <p className="mt-2 text-sm text-red-500">{state?.error?.phone}</p>
           </div>
         </div>
         <button
           type="submit"
-          className=" py-3 px-10 text-center font-semibold text-white w-full bg-orange-400 rounded-sm cursor-pointer hover:bg-orange-500 "
+          className={clsx(
+            "py-3 px-10 text-center font-semibold text-white w-full bg-orange-400 rounded-sm cursor-pointer hover:bg-orange-500 ",
+            { "opacity-50 cursor-progress": isPending },
+          )}
+          disabled={isPending}
         >
-          Reserve Now
+          {isPending ? "Loading..." : "Reserve"}
         </button>
       </form>
     </div>
