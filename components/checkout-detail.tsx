@@ -1,10 +1,18 @@
 import Image from "next/image";
 import { getReservationById } from "@/lib/data";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { differenceInCalendarDays } from "date-fns";
+import PaymentButton from "@/components/payment-button";
 
 const CheckoutDetail = async ({ reservationId }: { reservationId: string }) => {
   const reservation = await getReservationById(reservationId);
   if (!reservation || !reservation.Payment)
     return <h1>No Reservation Found</h1>;
+
+  const duration = differenceInCalendarDays(
+    reservation.endDate,
+    reservation.startDate,
+  );
   return (
     <div className="grid md:grid-cols-2 gap-5">
       <div className="order-2">
@@ -24,13 +32,80 @@ const CheckoutDetail = async ({ reservationId }: { reservationId: string }) => {
             </h5>
             <div className="flex items-center gap-1 text-2xl text-gray-700">
               <div className="flex items-center justify-center gap-1">
-                <span className="text-2xl">{reservation.price}</span>
+                <span className="text-2xl">
+                  {formatCurrency(reservation.price)}
+                </span>
+                <span>/ night</span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* paymentButton */}
+        <div className="">
+          <PaymentButton reservation={reservation} />
+        </div>
       </div>
-      <div className=""></div>
+      <div className="border border-gray-200 px-3 py-5 bg-white rounded-sm">
+        <table className="w-full">
+          <tbody>
+            <tr>
+              <td className="py-2">Reservation Id</td>
+              <td className="py-2 text-right truncate">#{reservation.id}</td>
+            </tr>
+            <tr>
+              <td className="py-2">Name</td>
+              <td className="py-2 text-right truncate">
+                {reservation.User.name}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Email</td>
+              <td className="py-2 text-right truncate">
+                {reservation.User.email}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Phone Number</td>
+              <td className="py-2 text-right truncate">
+                {reservation.User.phone}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Arrival</td>
+              <td className="py-2 text-right truncate">
+                {formatDate(reservation.startDate.toISOString())}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Departure</td>
+              <td className="py-2 text-right truncate">
+                {formatDate(reservation.endDate.toISOString())}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Duration</td>
+              <td className="py-2 text-right truncate">
+                <span>
+                  {duration} {duration <= 1 ? "Nights" : "Night"}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Amount in Rupiah</td>
+              <td className="py-2 text-right truncate">
+                <span>{formatCurrency(reservation.Payment.amount)}</span>
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2">Status</td>
+              <td className="py-2 text-right truncate">
+                {reservation.Payment.status}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

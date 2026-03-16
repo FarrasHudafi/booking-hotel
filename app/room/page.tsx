@@ -11,12 +11,25 @@ export const metadata: Metadata = {
 
 const RoomPage = () => {
   return (
-    <div>
+    <div className="min-h-screen bg-[#f8f6f2]">
       <HeaderSection
         title="Room & Rates"
-        subTitle="Lorem ipsum dolor sit amet."
+        subTitle="Choose your perfect stay"
       />
-      <div className="mt-10 px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+        <div className="mb-10 flex items-end justify-between">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.2em] text-orange-500 uppercase mb-1">
+              Our Collection
+            </p>
+            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+              Available Rooms
+            </h2>
+          </div>
+          <p className="text-sm text-gray-400 hidden sm:block">
+            All prices per night · Taxes included
+          </p>
+        </div>
         <Suspense fallback={<RoomSkeleton />}>
           <Main />
         </Suspense>

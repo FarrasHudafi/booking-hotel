@@ -4,10 +4,16 @@ import { addDays } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { createReserve } from "@/lib/action";
-import { RoomDetailProp } from "@/types/room";
+import { DisableDateProp, RoomDetailProp } from "@/types/room";
 import clsx from "clsx";
 
-const ReserveForm = ({ room }: { room: RoomDetailProp }) => {
+const ReserveForm = ({
+  room,
+  disableDate,
+}: {
+  room: RoomDetailProp;
+  disableDate: DisableDateProp[];
+}) => {
   const StartDate = new Date();
   const EndDate = addDays(StartDate, 1);
 
@@ -24,6 +30,13 @@ const ReserveForm = ({ room }: { room: RoomDetailProp }) => {
     createReserve.bind(null, room.id, room.price, startDate, endDate),
     null,
   );
+
+  const excludedDates = disableDate.map((item) => {
+    return {
+      start: item.startDate,
+      end: item.endDate,
+    };
+  });
 
   return (
     <div>
@@ -45,6 +58,7 @@ const ReserveForm = ({ room }: { room: RoomDetailProp }) => {
             dateFormat={"dd-MM-yyyy"}
             wrapperClassName="w-full"
             className="py-2 px-4 rounded-md border border-gray-300 w-full"
+            excludeDateIntervals={excludedDates}
           />
           <div aria-live="polite" aria-atomic="true">
             <p className="mt-2 text-sm text-red-500">{state?.messageDate}</p>

@@ -1,24 +1,27 @@
 const CardSkeleton = () => {
   return (
-    <div className="bg-white shadow-lg rounded-sm animate-pulse">
-      <div className="h-[200px] w-auto rounded-t-sm bg-gray-200">
-        <div className="p-8">
-          <div className="mb-2">
-            <div className="h-5 w-72 rounded bg-gray-200"></div>
+    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm animate-pulse flex flex-col">
+      {/* Image area */}
+      <div className="relative h-56 bg-gray-200 w-full">
+        {/* Capacity badge placeholder */}
+        <div className="absolute top-3 left-3 h-7 w-24 rounded-full bg-gray-300" />
+      </div>
+
+      {/* Content area */}
+      <div className="flex flex-col flex-1 p-5">
+        {/* Eyebrow label */}
+        <div className="h-3 w-16 rounded bg-gray-200 mb-2" />
+        {/* Room name */}
+        <div className="h-5 w-40 rounded bg-gray-200 mb-4" />
+        {/* Divider */}
+        <div className="border-t border-dashed border-gray-100 mb-4" />
+        {/* Price + Button row */}
+        <div className="flex items-center justify-between mt-auto">
+          <div className="space-y-1">
+            <div className="h-6 w-28 rounded bg-gray-200" />
+            <div className="h-3 w-12 rounded bg-gray-100" />
           </div>
-          <div className="mb-7">
-            <div className="h-6 w-32 rounded bg-gray-200"></div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="h-5 w-5 rounded-full bg-gray-200">
-                <span>
-                  <div className="h-5 w-12 rounded bg-gray-200"></div>
-                </span>
-              </div>
-              <div className="h-12 w-36 rounded-sm bg-gray-200"></div>
-            </div>
-          </div>
+          <div className="h-9 w-28 rounded-xl bg-gray-200" />
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
-import React from 'react'
 
-const CheckOutPage = () => {
-  return (
-    <div className='py-20 mt-10'>CheckOutPage</div>
-  )
+import { redirect } from "next/navigation"
+
+const CheckoutPage = () => {
+  redirect("/myreservation")
+  return null
 }
 
-export default CheckOutPage
+export default CheckoutPage

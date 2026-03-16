@@ -7,132 +7,195 @@ import { useSession, signOut } from "next-auth/react";
 import clsx from "clsx";
 import Image from "next/image";
 
+const NAV_LINKS = [
+  { href: "/", label: "Home" },
+  { href: "/about", label: "About" },
+  { href: "/room", label: "Room" },
+  { href: "/contact", label: "Contact" },
+];
+
 const Navlink = () => {
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
-  // console.log(session);
+
   return (
     <>
-      {session?.user ? (
-        <div className="flex items-center justify-end md:order-2 space-x-4">
-          {/* Avatar */}
-          <div className="hidden md:block relative">
-            <Image
-              src={session.user.image || "/avatar.svg"}
-              width={40}
-              height={40}
-              alt="avatar"
-              className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-md object-cover"
-            />
-          </div>
+      {/* Desktop Nav */}
+      <nav className="hidden md:flex items-center gap-1">
+        <ul className="flex items-center gap-1 text-sm font-medium text-gray-600">
+          {NAV_LINKS.map(({ href, label }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className="px-4 py-2 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-all duration-200"
+              >
+                {label}
+              </Link>
+            </li>
+          ))}
 
-          {/* Logout Button */}
-          <div className="flex items-center">
+          {session && (
+            <li>
+              <Link
+                href="/myreservation"
+                className="px-4 py-2 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-all duration-200"
+              >
+                My Reservation
+              </Link>
+            </li>
+          )}
+
+          {session?.user.role === "admin" && (
+            <>
+              <li>
+                <Link
+                  href="/admin/dashboard"
+                  className="px-4 py-2 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-all duration-200"
+                >
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/admin/room"
+                  className="px-4 py-2 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-all duration-200"
+                >
+                  Manage Room
+                </Link>
+              </li>
+            </>
+          )}
+        </ul>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-gray-200 mx-3" />
+
+        {/* Auth Section */}
+        {session?.user ? (
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Image
+                src={session.user.image || "/avatar.svg"}
+                width={34}
+                height={34}
+                alt="avatar"
+                className="rounded-full border-2 border-yellow-400 object-cover shadow-sm"
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
+            </div>
             <button
               onClick={() => signOut()}
-              className="md:block hidden py-2 px-4 text-[#002455] text-md bg-gray-300 shadow-sm hover:bg-gray-100 focus:ring-4 focus:ring-red-300 rounded-lg"
+              className="px-4 py-1.5 text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all duration-200"
             >
               Logout
             </button>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <Link
+            href="/signin"
+            className="px-5 py-2 text-sm font-semibold bg-yellow-400 text-gray-900 rounded-lg hover:bg-yellow-500 transition-all duration-200 shadow-sm"
+          >
+            Sign In
+          </Link>
+        )}
+      </nav>
+
+      {/* Mobile Hamburger */}
       <button
-        onClick={() => {
-          setOpen(!open);
-        }}
-        className="inline-flex items-center p-2 justify-center text-sm text-gray-500 rounded-md md:hidden hover:bg-gray-100"
+        onClick={() => setOpen(!open)}
+        className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+        aria-label="Toggle menu"
       >
-        {!open ? <IoMenu className="size-8" /> : <IoClose className="size-8" />}
+        {open ? <IoClose className="size-6" /> : <IoMenu className="size-6" />}
       </button>
 
-      <div className={clsx("w-full md:block md:w-auto", { hidden: !open })}>
-        <ul className="flex flex-col font-semibold text-sm uppercase p-4 mt-4 rounded-sm bg-gray-50 md:flex-row md:items-center md:space-x-10 md:p-0 md:mt-0 md:border-0 md:bg-white">
-          <li>
-            <Link
-              href="/"
-              className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-            >
-              Home
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/about"
-              className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-            >
-              About
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/room"
-              className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-            >
-              Room
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/contact"
-              className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-            >
-              Contact
-            </Link>
-          </li>
-          {/* kondisional ketika sudah login */}
-          {session && (
-            <>
-              <li>
-                <Link
-                  href="/myreservation"
-                  className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-                >
-                  My Reservation
-                </Link>
-              </li>
-              {session.user.role === "admin" && (
-                <>
-                  <li>
-                    <Link
-                      href="/admin/dashboard"
-                      className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-                    >
-                      Dashboard
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/admin/room"
-                      className="block py-2 px-3 text-gray-800 hover:bg-gray-100 rounded-sm md:hover:bg-transparent md:p-0"
-                    >
-                      Manage Room
-                    </Link>
-                  </li>
-                </>
-              )}
-            </>
-          )}
-
-          {session ? (
-            <li className="pt-2 md:pt-0">
-              <button
-                onClick={() => signOut()}
-                className="py-2.5 px-4 flex bg-red-400 text-white hover:bg-red-600 rounded-sm md:hidden cursor-pointer"
-              >
-                Sign Out
-              </button>
-            </li>
-          ) : (
-            <li className="pt-2 md:pt-0">
+      {/* Mobile Dropdown */}
+      <div
+        className={clsx(
+          "md:hidden absolute top-16 left-0 w-full bg-white border-b border-gray-100 shadow-lg transition-all duration-300 overflow-hidden",
+          open ? "max-h-screen opacity-100" : "max-h-0 opacity-0",
+        )}
+      >
+        <ul className="flex flex-col px-6 py-4 gap-1 text-sm font-medium text-gray-700">
+          {NAV_LINKS.map(({ href, label }) => (
+            <li key={href}>
               <Link
-                href="/signin"
-                className="py-2.5 px-3 flex bg-orange-400 text-white hover:bg-orange-500 rounded-sm"
+                href={href}
+                onClick={() => setOpen(false)}
+                className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
               >
-                Sign In
+                {label}
+              </Link>
+            </li>
+          ))}
+
+          {session && (
+            <li>
+              <Link
+                href="/myreservation"
+                onClick={() => setOpen(false)}
+                className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              >
+                My Reservation
               </Link>
             </li>
           )}
+
+          {session?.user.role === "admin" && (
+            <>
+              <li>
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/admin/room"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Manage Room
+                </Link>
+              </li>
+            </>
+          )}
+
+          <li className="pt-3 border-t border-gray-100 mt-2">
+            {session ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src={session.user.image || "/avatar.svg"}
+                    width={32}
+                    height={32}
+                    alt="avatar"
+                    className="rounded-full border-2 border-yellow-400 object-cover"
+                  />
+                  <span className="text-sm text-gray-600">
+                    {session.user.name}
+                  </span>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="px-4 py-1.5 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/signin"
+                onClick={() => setOpen(false)}
+                className="block text-center py-2.5 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
+          </li>
         </ul>
       </div>
     </>
