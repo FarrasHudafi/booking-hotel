@@ -39,7 +39,7 @@ const Footer = () => {
           <div className="md:col-span-4 flex flex-col gap-5">
             <Link href="/" className="flex items-center gap-2.5 group w-fit">
               <Image
-                src="/ventor.png"
+                src="/hotel_booking_logo.svg"
                 width={36}
                 height={36}
                 alt="logo"
