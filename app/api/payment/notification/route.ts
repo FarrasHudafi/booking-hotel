@@ -5,7 +5,8 @@ import crypto from "crypto";
 
 export const POST = async (request: Request) => {
   const data: PaymentProps = await request.json();
-  const reservationId = data.order_id;
+  // order_id may be "reservationId-timestamp" for retry payments
+  const reservationId = data.order_id.split("-")[0];
 
   let responseData = null;
   const transactionStatus = data.transaction_status;
@@ -18,7 +19,7 @@ export const POST = async (request: Request) => {
   const hash = crypto
     .createHash("sha512")
     .update(
-      `${reservationId}${statusCode}${grossAmount}${process.env.MIDTRANS_SERVER_KEY}`,
+      `${data.order_id}${statusCode}${grossAmount}${process.env.MIDTRANS_SERVER_KEY}`,
     )
     .digest("hex");
 

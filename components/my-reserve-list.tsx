@@ -13,7 +13,9 @@ const MyReserveList = async () => {
     <div className="space-y-5">
       {reservations.map((item) => {
         const nights = differenceInCalendarDays(item.endDate, item.startDate);
-        const isPaid = item.Payment?.status !== "unpaid";
+        const status = (item.Payment?.status ?? "pending").toLowerCase();
+        const isPaid = status === "paid";
+        const isPending = status === "pending";
 
         return (
           <div
@@ -37,7 +39,7 @@ const MyReserveList = async () => {
                     isPaid ? "bg-emerald-500" : "bg-amber-500"
                   }`}
                 />
-                {item.Payment?.status ?? "Pending"}
+                {item.Payment?.status ?? "pending"}
               </span>
             </div>
 
@@ -110,7 +112,7 @@ const MyReserveList = async () => {
                       href={`/checkout/${item.id}`}
                       className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 active:scale-95 transition-all duration-150"
                     >
-                      Pay Now
+                      {isPending ? "Proceed Payment" : "Pay Now"}
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="w-4 h-4"

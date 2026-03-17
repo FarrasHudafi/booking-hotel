@@ -17,9 +17,20 @@ const PaymentButton = ({ reservation }: { reservation: reservationProps }) => {
       try {
         const response = await fetch("/api/payment", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(reservation),
         });
-        const { token } = await response.json();
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            data?.message ||
+            data?.detail ||
+            `Payment request failed (${response.status})`;
+          throw new Error(message);
+        }
+
+        const token = data?.token;
         if (token) {
           window.snap.pay(token);
         }
