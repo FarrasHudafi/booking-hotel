@@ -27,7 +27,7 @@ const PaymentSuccess = async ({
           Thank you for your payment. Your reservation has been confirmed.
         </p>
         <Link
-          href="/myreservations"
+          href="/myreservation"
           className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
         >
           View My Reservations
