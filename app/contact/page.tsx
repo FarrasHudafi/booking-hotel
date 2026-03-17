@@ -15,7 +15,7 @@ const ContactPage = () => {
     <div>
       <HeaderSection
         title="Contact Us"
-        subTitle="Lorem ipsum dolor sit amet."
+        subTitle="We are here to help with your inquiries"
       />
       <div className="max-w-7xl mx-auto py-20 px-4">
         <div className="grid md:grid-cols-2 gap-8">
@@ -25,8 +25,9 @@ const ContactPage = () => {
               Get In Touch Today
             </h1>
             <p className="text-gray-700 py-5">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Odit
-              officia, praesentium temporibus modi omnis cupiditate?
+              Please contact us for booking assistance, service inquiries, or
+              any other needs. Our team will respond promptly with the
+              information you require.
             </p>
             <ul className="list-item space-y-6 py-8">
               <li className="flex gap-5 items-center">
@@ -50,7 +51,7 @@ const ContactPage = () => {
               </li>
               <li className="flex gap-5 item-center">
                 <div className="flex-none bg-gray-300 p-3 shadow-sm rounded-sm">
-                  <IoLocationOutline   className="size-7" />
+                  <IoLocationOutline className="size-7" />
                 </div>
                 <div className="flex-1">
                   <h4 className="text-lg font-semibold mb-1">Address :</h4>

@@ -33,7 +33,7 @@ const PaymentButton = ({ reservation }: { reservation: reservationProps }) => {
       onClick={handlePayment}
       className="px-10 py-4 mt-2 text-center font-semibold text-white w-full bg-orange-400 rounded-sm hover:bg-orange-500 cursor-pointer"
     >
-      Proceed to payment
+      {isPending ? "Processing..." : "Proceed payment"}
     </button>
   );
 };

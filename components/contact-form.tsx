@@ -23,7 +23,7 @@ const ContactForm: FC = () => {
               type="text"
               name="name"
               className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
-              placeholder="Name*"
+              placeholder="Your Name*"
             />
             <div aria-live="polite" aria-atomic="true">
               <p className="text-sm text-red-500 mt-2">{state?.error?.name}</p>
@@ -34,7 +34,7 @@ const ContactForm: FC = () => {
               type="email"
               name="email"
               className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
-              placeholder="example@gmail.com*"
+              placeholder="you@example.com*"
             />
             <div aria-live="polite" aria-atomic="true">
               <p className="text-sm text-red-500 mt-2">{state?.error?.email}</p>
@@ -58,7 +58,7 @@ const ContactForm: FC = () => {
               name="message"
               rows={5}
               className="bg-gray-200 p-3 border-gray-200 rounded-sm w-full font-light"
-              placeholder="Put Your Message*"
+              placeholder="Write your message here*"
             ></textarea>
             <div aria-live="polite" aria-atomic="true">
               <p className="text-sm text-red-500 mt-2">

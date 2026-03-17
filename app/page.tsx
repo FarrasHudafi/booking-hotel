@@ -14,8 +14,8 @@ export default function Home() {
             Room & Rates
           </h1>
           <p className="py-3 text-lg text-gray-600">
-            Lorem ipsum dolor sit amet consectetur, adipisicing elit. Inventore,
-            similique?
+            Explore the best room options and transparent pricing tailored to
+            your stay.
           </p>
         </div>
 
