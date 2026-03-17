@@ -1,11 +1,46 @@
 "use client";
-import { useState, useActionState } from "react";
-import { addDays } from "date-fns";
+import { forwardRef, useActionState, useMemo, useState } from "react";
+import { addDays, differenceInCalendarDays } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { createReserve } from "@/lib/action";
 import { DisableDateProp, RoomDetailProp } from "@/types/room";
 import clsx from "clsx";
+import { IoCalendarOutline } from "react-icons/io5";
+
+const CalendarInput = forwardRef<
+  HTMLButtonElement,
+  {
+    value?: string;
+    onClick?: () => void;
+    hasError?: boolean;
+    placeholder?: string;
+    ariaLabel?: string;
+  }
+>(({ value, onClick, hasError, placeholder, ariaLabel }, ref) => {
+  return (
+    <button
+      type="button"
+      ref={ref}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={clsx(
+        "w-full rounded-md border bg-white px-3 py-2 text-left",
+        "transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400",
+        hasError ? "border-red-400" : "border-gray-300 hover:border-gray-400",
+      )}
+    >
+      <span className="flex items-center gap-2">
+        <IoCalendarOutline className="size-5 text-gray-500" aria-hidden />
+        <span className={clsx("flex-1", value ? "text-gray-900" : "text-gray-400")}>
+          {value || placeholder || "Select a date"}
+        </span>
+      </span>
+    </button>
+  );
+});
+
+CalendarInput.displayName = "CalendarInput";
 
 const ReserveForm = ({
   room,
@@ -14,17 +49,14 @@ const ReserveForm = ({
   room: RoomDetailProp;
   disableDate: DisableDateProp[];
 }) => {
-  const StartDate = new Date();
-  const EndDate = addDays(StartDate, 1);
+  const { initialStartDate, initialEndDate } = useMemo(() => {
+    const s = new Date();
+    const e = addDays(s, 1);
+    return { initialStartDate: s, initialEndDate: e };
+  }, []);
 
-  const [startDate, setStartDate] = useState(StartDate);
-  const [endDate, setEndDate] = useState(EndDate);
-
-  const handleDateChange = (dates: [Date | null, Date | null]) => {
-    const [start, end] = dates;
-    setStartDate(start ?? StartDate);
-    setEndDate(end ?? EndDate);
-  };
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
 
   const [state, formAction, isPending] = useActionState(
     createReserve.bind(null, room.id, room.price, startDate, endDate),
@@ -38,43 +70,94 @@ const ReserveForm = ({
     };
   });
 
+  const nights = Math.max(1, differenceInCalendarDays(endDate, startDate));
+
   return (
     <div>
       <form action={formAction}>
         <div className="mb-4">
-          <label
-            htmlFor="checkin"
-            className="block text-sm font-medium text-gray-900 mb-1"
-          >
-            Arrival - Departure
+          <label className="block text-sm font-medium text-gray-900 mb-1">
+            Stay dates
           </label>
-          <DatePicker
-            selected={startDate}
-            startDate={startDate}
-            endDate={endDate}
-            minDate={new Date()}
-            selectsRange={true}
-            onChange={handleDateChange}
-            dateFormat={"dd-MM-yyyy"}
-            wrapperClassName="w-full"
-            className="py-2 px-4 rounded-md border border-gray-300 w-full"
-            excludeDateIntervals={excludedDates}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="checkin"
+                className="block text-xs font-medium text-gray-600 mb-1"
+              >
+                Check-in
+              </label>
+              <DatePicker
+                id="checkin"
+                selected={startDate}
+                onChange={(date: Date | null) => {
+                  const nextStart = date ?? initialStartDate;
+                  setStartDate(nextStart);
+                  if (endDate <= nextStart) {
+                    setEndDate(addDays(nextStart, 1));
+                  }
+                }}
+                minDate={new Date()}
+                dateFormat={"dd-MM-yyyy"}
+                wrapperClassName="w-full"
+                customInput={
+                  <CalendarInput
+                    hasError={Boolean(state?.messageDate)}
+                    placeholder="Select check-in"
+                    ariaLabel="Select check-in date"
+                  />
+                }
+                excludeDateIntervals={excludedDates}
+                showPopperArrow={false}
+                popperPlacement="bottom-start"
+                calendarClassName="react-datepicker--modern"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="checkout"
+                className="block text-xs font-medium text-gray-600 mb-1"
+              >
+                Check-out
+              </label>
+              <DatePicker
+                id="checkout"
+                selected={endDate}
+                onChange={(date: Date | null) => setEndDate(date ?? initialEndDate)}
+                minDate={addDays(startDate, 1)}
+                dateFormat={"dd-MM-yyyy"}
+                wrapperClassName="w-full"
+                customInput={
+                  <CalendarInput
+                    hasError={Boolean(state?.messageDate)}
+                    placeholder="Select check-out"
+                    ariaLabel="Select check-out date"
+                  />
+                }
+                excludeDateIntervals={excludedDates}
+                showPopperArrow={false}
+                popperPlacement="bottom-start"
+                calendarClassName="react-datepicker--modern"
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            {nights} {nights === 1 ? "night" : "nights"} • Check-out must be at least 1
+            day after check-in.
+          </p>
           <div aria-live="polite" aria-atomic="true">
             <p className="mt-2 text-sm text-red-500">{state?.messageDate}</p>
           </div>
         </div>
         <div className="mb-4">
-          <label
-            htmlFor="checkin"
-            className="block text-sm font-medium text-gray-900 mb-1"
-          >
+          <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-1">
             Your Name
           </label>
           <input
             type="text"
+            id="name"
             name="name"
-            className="py-2 px-4 rounded-md border border-gray-300 w-full"
+            className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
             placeholder="Full Name..."
           />
           <div aria-live="polite" aria-atomic="true">
@@ -82,16 +165,14 @@ const ReserveForm = ({
           </div>
         </div>
         <div className="mb-4">
-          <label
-            htmlFor="checkin"
-            className="block text-sm font-medium text-gray-900 mb-1"
-          >
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-900 mb-1">
             Phone Number
           </label>
           <input
             type="text"
+            id="phone"
             name="phone"
-            className="py-2 px-4 rounded-md border border-gray-300 w-full"
+            className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
             placeholder="Phone Number..."
           />
           <div aria-live="polite" aria-atomic="true">
