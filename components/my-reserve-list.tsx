@@ -15,7 +15,9 @@ const MyReserveList = async () => {
         const nights = differenceInCalendarDays(item.endDate, item.startDate);
         const status = (item.Payment?.status ?? "pending").toLowerCase();
         const isPaid = status === "paid";
+        const isFailure = status === "failure";
         const isPending = status === "pending";
+        const showViewDetails = isPaid || isFailure;
 
         return (
           <div
@@ -31,12 +33,18 @@ const MyReserveList = async () => {
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase ${
                   isPaid
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : isFailure
+                    ? "bg-rose-50 text-rose-700 border border-rose-200"
                     : "bg-amber-50 text-amber-700 border border-amber-200"
                 }`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    isPaid ? "bg-emerald-500" : "bg-amber-500"
+                    isPaid
+                      ? "bg-emerald-500"
+                      : isFailure
+                      ? "bg-rose-500"
+                      : "bg-amber-500"
                   }`}
                 />
                 {item.Payment?.status ?? "pending"}
@@ -86,7 +94,7 @@ const MyReserveList = async () => {
 
                 {/* CTA */}
                 <div className="flex justify-end mt-4">
-                  {isPaid ? (
+                  {showViewDetails ? (
                     <Link
                       href={`/myreservation/${item.id}`}
                       className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 active:scale-95 transition-all duration-150"

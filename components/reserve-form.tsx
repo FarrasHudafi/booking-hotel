@@ -57,6 +57,11 @@ const ReserveForm = ({
 
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [clientError, setClientError] = useState<{ name?: string; phone?: string }>(
+    {},
+  );
 
   const [state, formAction, isPending] = useActionState(
     createReserve.bind(null, room.id, room.price, startDate, endDate),
@@ -157,10 +162,33 @@ const ReserveForm = ({
             type="text"
             id="name"
             name="name"
+            value={name}
+            onChange={(e) => {
+              const raw = e.target.value;
+              // allow letters, spaces, apostrophes, hyphens, dots
+              const sanitized = raw.replace(/[^a-zA-Z\s.'-]/g, "");
+              setName(sanitized);
+
+              const hadNumber = /\d/.test(raw);
+              setClientError((prev) => ({
+                ...prev,
+                name: hadNumber ? "Name cannot contain numbers." : undefined,
+              }));
+            }}
+            onBlur={() => {
+              if (name.trim().length === 0) {
+                setClientError((prev) => ({
+                  ...prev,
+                  name: prev.name ?? undefined,
+                }));
+              }
+            }}
             className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
             placeholder="Full Name..."
+            autoComplete="name"
           />
           <div aria-live="polite" aria-atomic="true">
+            <p className="mt-2 text-xs text-red-500">{clientError.name}</p>
             <p className="mt-2 text-sm text-red-500">{state?.error?.name}</p>
           </div>
         </div>
@@ -169,13 +197,28 @@ const ReserveForm = ({
             Phone Number
           </label>
           <input
-            type="text"
+            type="tel"
             id="phone"
             name="phone"
+            value={phone}
+            inputMode="numeric"
+            autoComplete="tel"
+            onChange={(e) => {
+              const raw = e.target.value;
+              const sanitized = raw.replace(/[^\d+\s()-]/g, "");
+              setPhone(sanitized);
+
+              const hadLetter = /[a-zA-Z]/.test(raw);
+              setClientError((prev) => ({
+                ...prev,
+                phone: hadLetter ? "Phone number must contain digits only." : undefined,
+              }));
+            }}
             className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
             placeholder="Phone Number..."
           />
           <div aria-live="polite" aria-atomic="true">
+            <p className="mt-2 text-xs text-red-500">{clientError.phone}</p>
             <p className="mt-2 text-sm text-red-500">{state?.error?.phone}</p>
           </div>
         </div>
@@ -183,9 +226,13 @@ const ReserveForm = ({
           type="submit"
           className={clsx(
             "py-3 px-10 text-center font-semibold text-white w-full bg-orange-400 rounded-sm cursor-pointer hover:bg-orange-500 ",
-            { "opacity-50 cursor-progress": isPending },
+            {
+              "opacity-50 cursor-progress": isPending,
+              "opacity-60 cursor-not-allowed":
+                Boolean(clientError.name) || Boolean(clientError.phone),
+            },
           )}
-          disabled={isPending}
+          disabled={isPending || Boolean(clientError.name) || Boolean(clientError.phone)}
         >
           {isPending ? "Loading..." : "Reserve"}
         </button>
