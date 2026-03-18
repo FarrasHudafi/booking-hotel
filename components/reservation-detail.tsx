@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
 import Link from "next/link";
+import { getMidtransTransactionStatus } from "@/lib/midtrans";
 
 const ReservationDetail = async ({
   reservationId,
@@ -19,6 +20,11 @@ const ReservationDetail = async ({
   const status = (reservation.Payment?.status ?? "pending").toLowerCase();
   const isPaid = status === "paid";
   const isPending = status === "pending";
+  const midtransOrderId = reservation.Payment?.midtransOrderId ?? null;
+  const midtransStatus =
+    isPending && midtransOrderId
+      ? await getMidtransTransactionStatus(midtransOrderId)
+      : null;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -96,6 +102,119 @@ const ReservationDetail = async ({
 
         {/* Divider */}
         <div className="border-t border-dashed border-gray-200" />
+
+        {/* Payment Instructions (resume existing Midtrans) */}
+        {isPending && midtransStatus && (
+          <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold tracking-[0.15em] text-amber-700 uppercase">
+                  Instruksi Pembayaran
+                </p>
+                <p className="text-sm text-amber-800 mt-1">
+                  Gunakan detail pembayaran yang sama dari transaksi terakhir.
+                </p>
+              </div>
+              <span className="text-xs font-mono text-amber-700">
+                {midtransStatus.payment_type ?? "—"}
+              </span>
+            </div>
+
+            <div className="mt-4 grid sm:grid-cols-2 gap-3">
+              <div className="rounded-lg bg-white border border-amber-100 p-3">
+                <p className="text-xs text-gray-500">Order ID</p>
+                <p className="font-mono text-sm text-gray-900 break-all">
+                  {midtransStatus.order_id ?? midtransOrderId}
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-white border border-amber-100 p-3">
+                <p className="text-xs text-gray-500">Status Midtrans</p>
+                <p className="text-sm font-semibold text-gray-900 capitalize">
+                  {midtransStatus.transaction_status ?? "pending"}
+                </p>
+              </div>
+
+              {/* Virtual Account */}
+              {(Array.isArray(midtransStatus.va_numbers) &&
+                midtransStatus.va_numbers.length > 0) ||
+              midtransStatus.permata_va_number ? (
+                <div className="rounded-lg bg-white border border-amber-100 p-3 sm:col-span-2">
+                  <p className="text-xs text-gray-500">Virtual Account</p>
+                  {Array.isArray(midtransStatus.va_numbers) &&
+                  midtransStatus.va_numbers.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {midtransStatus.va_numbers.map((va) => (
+                        <div
+                          key={`${va.bank}-${va.va_number}`}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <span className="text-sm font-semibold text-gray-900 uppercase">
+                            {va.bank}
+                          </span>
+                          <span className="font-mono text-sm text-gray-900">
+                            {va.va_number}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="font-mono text-sm text-gray-900 mt-1">
+                      {midtransStatus.permata_va_number}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              {/* eChannel */}
+              {midtransStatus.bill_key && midtransStatus.biller_code ? (
+                <div className="rounded-lg bg-white border border-amber-100 p-3 sm:col-span-2">
+                  <p className="text-xs text-gray-500">Mandiri e-Channel</p>
+                  <div className="mt-1 flex flex-wrap gap-6">
+                    <div>
+                      <p className="text-[11px] text-gray-500">Biller Code</p>
+                      <p className="font-mono text-sm text-gray-900">
+                        {midtransStatus.biller_code}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-500">Bill Key</p>
+                      <p className="font-mono text-sm text-gray-900">
+                        {midtransStatus.bill_key}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* QRIS */}
+              {Array.isArray(midtransStatus.actions) &&
+              midtransStatus.actions.length > 0 ? (
+                <div className="rounded-lg bg-white border border-amber-100 p-3 sm:col-span-2">
+                  <p className="text-xs text-gray-500">QRIS</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {midtransStatus.actions.slice(0, 2).map((a) => (
+                      <a
+                        key={a.url}
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700"
+                      >
+                        Buka QR
+                      </a>
+                    ))}
+                  </div>
+                  {midtransStatus.expiry_time ? (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Expired: {formatDate(midtransStatus.expiry_time)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         {/* Booking Summary Table */}
         <div>

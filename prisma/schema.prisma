@@ -62,6 +62,11 @@ model Payment {
   method        String?
   amount        Int
   status        String      @default("unpaid")
+  midtransOrderId   String?
+  midtransToken     String?
+  midtransRedirectUrl String?
+  midtransExpiryAt  DateTime?
+  midtransPayload   Json?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   reservationId String      @unique

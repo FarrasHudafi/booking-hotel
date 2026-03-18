@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Midtrans from "midtrans-client";
-import { reservationProps } from "@/types/reservation";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 const snap = new Midtrans.Snap({
   isProduction: false,
@@ -31,8 +32,22 @@ const formatMidtransLocalTime = (date: Date) => {
 
 export const POST = async (request: Request) => {
   try {
-    const reservation: reservationProps = await request.json();
-    const amount = reservation.Payment?.amount || 0;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as {
+      reservationId?: string;
+      id?: string;
+    };
+    const reservationId = body.reservationId ?? body.id;
+    if (!reservationId) {
+      return NextResponse.json(
+        { message: "reservationId is required" },
+        { status: 400 },
+      );
+    }
 
     if (!process.env.MIDTRANS_SERVER_KEY) {
       return NextResponse.json(
@@ -46,12 +61,25 @@ export const POST = async (request: Request) => {
         { status: 500 },
       );
     }
-    if (!reservation?.id) {
+
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: reservationId },
+      include: {
+        User: { select: { name: true, email: true } },
+        Payment: true,
+      },
+    });
+    if (!reservation || !reservation.Payment) {
       return NextResponse.json(
-        { message: "Invalid reservation payload" },
-        { status: 400 },
+        { message: "Reservation not found" },
+        { status: 404 },
       );
     }
+    if (reservation.userId !== session.user.id) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const amount = reservation.Payment.amount || 0;
     if (amount <= 0) {
       return NextResponse.json(
         { message: "Invalid gross_amount" },
@@ -59,8 +87,31 @@ export const POST = async (request: Request) => {
       );
     }
 
-    // Make order_id unique so user can retry payment when status is pending
+    const now = new Date();
+    const existingExpiry = reservation.Payment.midtransExpiryAt;
+    const hasExistingToken =
+      reservation.Payment.status?.toLowerCase() === "pending" &&
+      !!reservation.Payment.midtransToken &&
+      !!reservation.Payment.midtransOrderId &&
+      !!existingExpiry &&
+      existingExpiry.getTime() > now.getTime();
+
+    if (hasExistingToken) {
+      return NextResponse.json(
+        {
+          token: reservation.Payment.midtransToken,
+          orderId: reservation.Payment.midtransOrderId,
+          redirectUrl: reservation.Payment.midtransRedirectUrl,
+          reused: true,
+        },
+        { status: 200 },
+      );
+    }
+
+    // Make order_id unique so user can retry payment when expired/none
     const orderId = `${reservation.id}-${Date.now()}`;
+    const durationMinutes = 10;
+    const expiryAt = new Date(now.getTime() + durationMinutes * 60_000);
 
     const parameter = {
       transaction_details: {
@@ -70,19 +121,37 @@ export const POST = async (request: Request) => {
       expiry: {
         start_time: formatMidtransLocalTime(new Date()),
         unit: "minute",
-        duration: 10,
+        duration: durationMinutes,
       },
       credit_card: {
         secure: true,
       },
       customer_details: {
-        first_name: reservation.User.name,
-        email: reservation.User.email,
+        first_name: reservation.User.name ?? undefined,
+        email: reservation.User.email ?? undefined,
       },
     };
 
     const transaction = await snap.createTransaction(parameter);
-    return NextResponse.json({ token: transaction.token });
+
+    await prisma.payment.update({
+      where: { reservationId: reservation.id },
+      data: {
+        status: "pending",
+        midtransOrderId: orderId,
+        midtransToken: transaction.token,
+        midtransRedirectUrl: transaction.redirect_url,
+        midtransExpiryAt: expiryAt,
+        midtransPayload: transaction as unknown as object,
+      },
+    });
+
+    return NextResponse.json({
+      token: transaction.token,
+      orderId,
+      redirectUrl: transaction.redirect_url,
+      reused: false,
+    });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(

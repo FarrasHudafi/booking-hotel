@@ -36,6 +36,8 @@ export const POST = async (request: Request) => {
         data: {
           method: paymentType,
           status: "paid",
+          midtransOrderId: data.order_id,
+          midtransPayload: data as unknown as object,
         },
         where: {
           reservationId: reservationId,
@@ -48,6 +50,8 @@ export const POST = async (request: Request) => {
       data: {
         method: paymentType,
         status: "paid",
+        midtransOrderId: data.order_id,
+        midtransPayload: data as unknown as object,
       },
       where: {
         reservationId: reservationId,
@@ -63,6 +67,8 @@ export const POST = async (request: Request) => {
       data: {
         method: paymentType,
         status: "failure",
+        midtransOrderId: data.order_id,
+        midtransPayload: data as unknown as object,
       },
       where: {
         reservationId: reservationId,
@@ -74,6 +80,8 @@ export const POST = async (request: Request) => {
       data: {
         method: paymentType,
         status: "pending",
+        midtransOrderId: data.order_id,
+        midtransPayload: data as unknown as object,
       },
       where: {
         reservationId: reservationId,

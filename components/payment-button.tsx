@@ -18,7 +18,7 @@ const PaymentButton = ({ reservation }: { reservation: reservationProps }) => {
         const response = await fetch("/api/payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(reservation),
+          body: JSON.stringify({ reservationId: reservation.id }),
         });
         const data = await response.json().catch(() => null);
 
