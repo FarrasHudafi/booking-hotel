@@ -17,7 +17,7 @@ const MyReserveList = async () => {
         const isPaid = status === "paid";
         const isFailure = status === "failure";
         const isPending = status === "pending";
-        const showViewDetails = isPaid || isFailure;
+        const showViewDetails = isPaid || isFailure || isPending;
 
         return (
           <div
@@ -34,8 +34,8 @@ const MyReserveList = async () => {
                   isPaid
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     : isFailure
-                    ? "bg-rose-50 text-rose-700 border border-rose-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                      ? "bg-rose-50 text-rose-700 border border-rose-200"
+                      : "bg-amber-50 text-amber-700 border border-amber-200"
                 }`}
               >
                 <span
@@ -43,8 +43,8 @@ const MyReserveList = async () => {
                     isPaid
                       ? "bg-emerald-500"
                       : isFailure
-                      ? "bg-rose-500"
-                      : "bg-amber-500"
+                        ? "bg-rose-500"
+                        : "bg-amber-500"
                   }`}
                 />
                 {item.Payment?.status ?? "pending"}
@@ -120,7 +120,7 @@ const MyReserveList = async () => {
                       href={`/checkout/${item.id}`}
                       className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 active:scale-95 transition-all duration-150"
                     >
-                      {isPending ? "Proceed Payment" : "Pay Now"}
+                      Pay Now
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="w-4 h-4"

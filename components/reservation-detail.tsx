@@ -2,6 +2,7 @@ import { getReservationById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
+import Link from "next/link";
 
 const ReservationDetail = async ({
   reservationId,
@@ -15,7 +16,9 @@ const ReservationDetail = async ({
     reservation.endDate,
     reservation.startDate
   );
-  const isPaid = reservation.Payment?.status !== "unpaid";
+  const status = (reservation.Payment?.status ?? "pending").toLowerCase();
+  const isPaid = status === "paid";
+  const isPending = status === "pending";
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -155,6 +158,32 @@ const ReservationDetail = async ({
             </table>
           </div>
         </div>
+
+        {/* Actions */}
+        {isPending && (
+          <div className="flex justify-end pt-4 border-t border-dashed border-gray-200">
+            <Link
+              href={`/checkout/${reservation.id}`}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 active:scale-95 transition-all duration-150"
+            >
+              Lanjutkan Pembayaran
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+          </div>
+        )}
 
       </div>
     </div>
