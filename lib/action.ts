@@ -1,6 +1,7 @@
 "use server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { quoteDynamicPriceForRoom } from "@/lib/data";
 import { ContactSchema, ReserveSchema, RoomSchema } from "@/lib/zod";
 import { del } from "@vercel/blob";
 import { differenceInCalendarDays } from "date-fns";
@@ -147,9 +148,26 @@ export const updateRoom = async (
   redirect("/admin/room");
 };
 
+export const quoteDynamicPrice = async (
+  roomId: string,
+  startIso: string,
+  endIso: string,
+  promoCode?: string,
+) => {
+  const checkIn = new Date(startIso);
+  const checkOut = new Date(endIso);
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+    return { error: "Invalid dates" as const };
+  }
+  const quote = await quoteDynamicPriceForRoom(roomId, checkIn, checkOut, new Date(), promoCode);
+  if (!quote) {
+    return { error: "Room not found" as const };
+  }
+  return { ok: true as const, quote };
+};
+
 export const createReserve = async (
   roomId: string,
-  price: number,
   startDate: Date,
   endDate: Date,
   prevState: unknown,
@@ -158,6 +176,14 @@ export const createReserve = async (
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect(`/signin?redirect_url=room/${roomId}`);
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startDay = new Date(startDate);
+  startDay.setHours(0, 0, 0, 0);
+  if (startDay < today) {
+    return { messageDate: "Check-in date cannot be in the past" };
   }
 
   const rawData = {
@@ -173,9 +199,36 @@ export const createReserve = async (
   }
 
   const { name, phone } = validateFields.data;
+  const promoCode = String(FormData.get("promoCode") ?? "");
   const night = differenceInCalendarDays(endDate, startDate);
   if (night <= 0) return { messageDate: "Date must be at least 1 night" };
-  const total = night * price;
+
+  // Server-side availability check (prevents bypassing UI constraints)
+  const conflict = await prisma.reservation.findFirst({
+    where: {
+      roomId,
+      Payment: { status: { not: "failure" } },
+      startDate: { lt: endDate },
+      endDate: { gt: startDate },
+    },
+    select: { id: true },
+  });
+  if (conflict) {
+    return { messageDate: "Selected dates are unavailable" };
+  }
+
+  const pricing = await quoteDynamicPriceForRoom(
+    roomId,
+    startDate,
+    endDate,
+    new Date(),
+    promoCode,
+  );
+  if (!pricing) {
+    return { message: "Unable to compute price for this room" };
+  }
+  const nightly = pricing.effectivePricePerNight;
+  const total = pricing.totalAfterDiscount;
 
   let reservationId;
   try {
@@ -194,7 +247,7 @@ export const createReserve = async (
         data: {
           startDate: startDate,
           endDate: endDate,
-          price: price,
+          price: nightly,
           roomId: roomId,
           userId: session.user.id as string,
           Payment: {

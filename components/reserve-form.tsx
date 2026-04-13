@@ -1,12 +1,37 @@
 "use client";
-import { forwardRef, useActionState, useMemo, useState } from "react";
-import { addDays, differenceInCalendarDays } from "date-fns";
+import { forwardRef, useActionState, useEffect, useMemo, useState } from "react";
+import { addDays, differenceInCalendarDays, subDays } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { createReserve } from "@/lib/action";
+import { createReserve, quoteDynamicPrice } from "@/lib/action";
 import { DisableDateProp, RoomDetailProp } from "@/types/room";
 import clsx from "clsx";
 import { IoCalendarOutline } from "react-icons/io5";
+import { formatCurrency } from "@/lib/utils";
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+function isSelectionOverlappingExisting(
+  start: Date,
+  end: Date,
+  disableDate: DisableDateProp[],
+) {
+  if (end <= start) return true;
+  for (const r of disableDate) {
+    const occupiedStart = r.startDate;
+    const occupiedEndExclusive = r.endDate; // checkout date is not occupied
+    if (rangesOverlap(start, end, occupiedStart, occupiedEndExclusive)) return true;
+  }
+  return false;
+}
 
 const CalendarInput = forwardRef<
   HTMLButtonElement,
@@ -50,32 +75,73 @@ const ReserveForm = ({
   disableDate: DisableDateProp[];
 }) => {
   const { initialStartDate, initialEndDate } = useMemo(() => {
-    const s = new Date();
-    const e = addDays(s, 1);
-    return { initialStartDate: s, initialEndDate: e };
-  }, []);
+    const today = startOfDay(new Date());
+    // pick the first available check-in date
+    let candidate = today;
+    for (let i = 0; i < 365; i++) {
+      const next = addDays(today, i);
+      const nextEnd = addDays(next, 1);
+      if (!isSelectionOverlappingExisting(next, nextEnd, disableDate)) {
+        candidate = next;
+        break;
+      }
+    }
+    return { initialStartDate: candidate, initialEndDate: addDays(candidate, 1) };
+  }, [disableDate]);
 
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [clientError, setClientError] = useState<{ name?: string; phone?: string }>(
     {},
   );
 
   const [state, formAction, isPending] = useActionState(
-    createReserve.bind(null, room.id, room.price, startDate, endDate),
+    createReserve.bind(null, room.id, startDate, endDate),
     null,
   );
+
+  const [priceQuote, setPriceQuote] = useState<
+    Awaited<ReturnType<typeof quoteDynamicPrice>> | null
+  >(null);
+
+  useEffect(() => {
+    // if the current selection becomes invalid (or initial was disabled), snap to first available
+    if (isSelectionOverlappingExisting(startDate, endDate, disableDate)) {
+      setStartDate(initialStartDate);
+      setEndDate(initialEndDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disableDate, room.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const r = await quoteDynamicPrice(
+        room.id,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        promoCode,
+      );
+      if (!cancelled) setPriceQuote(r);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [room.id, startDate, endDate, promoCode]);
 
   const excludedDates = disableDate.map((item) => {
     return {
       start: item.startDate,
-      end: item.endDate,
+      // endDate is checkout, so the occupied last night is endDate - 1 day
+      end: subDays(item.endDate, 1),
     };
   });
 
   const nights = Math.max(1, differenceInCalendarDays(endDate, startDate));
+  const hasDateConflict = isSelectionOverlappingExisting(startDate, endDate, disableDate);
 
   return (
     <div>
@@ -102,7 +168,7 @@ const ReserveForm = ({
                     setEndDate(addDays(nextStart, 1));
                   }
                 }}
-                minDate={new Date()}
+                minDate={startOfDay(new Date())}
                 dateFormat={"dd-MM-yyyy"}
                 wrapperClassName="w-full"
                 customInput={
@@ -152,8 +218,115 @@ const ReserveForm = ({
           </p>
           <div aria-live="polite" aria-atomic="true">
             <p className="mt-2 text-sm text-red-500">{state?.messageDate}</p>
+            {state && "message" in state && state.message ? (
+              <p className="mt-2 text-sm text-red-500">{state.message}</p>
+            ) : null}
+            {hasDateConflict ? (
+              <p className="mt-2 text-sm text-red-500">
+                Selected dates are unavailable. Please choose another date.
+              </p>
+            ) : null}
           </div>
         </div>
+
+        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-2">
+            Dynamic rate (revenue management)
+          </p>
+          {priceQuote === null ? (
+            <p className="text-sm text-gray-600">Calculating price…</p>
+          ) : "error" in priceQuote ? (
+            <p className="text-sm text-red-600">{priceQuote.error}</p>
+          ) : (
+            <div className="space-y-2 text-sm text-gray-800">
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Effective / night</span>
+                <span className="font-bold text-gray-900">
+                  {formatCurrency(priceQuote.quote.effectivePricePerNight)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 text-xs text-gray-600">
+                <span>Base rate</span>
+                <span>{formatCurrency(priceQuote.quote.basePricePerNight)}</span>
+              </div>
+              <div className="flex justify-between gap-3 text-xs text-gray-600">
+                <span>Est. stay total</span>
+                <span className="font-semibold text-gray-900">
+                  {formatCurrency(priceQuote.quote.totalStay)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 text-xs text-gray-600">
+                <span>Promo discount</span>
+                <span
+                  className={clsx(
+                    "font-semibold",
+                    priceQuote.quote.discountAmount > 0
+                      ? "text-green-600"
+                      : "text-gray-500",
+                  )}
+                >
+                  - {formatCurrency(priceQuote.quote.discountAmount)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="font-semibold text-gray-700">Total after promo</span>
+                <span className="font-bold text-gray-900">
+                  {formatCurrency(priceQuote.quote.totalAfterDiscount)}
+                </span>
+              </div>
+              {priceQuote.quote.promoCode ? (
+                <p className="text-[11px] text-green-700">
+                  Promo aktif: <strong>{priceQuote.quote.promoCode}</strong>{" "}
+                  ({priceQuote.quote.promoDescription})
+                </p>
+              ) : null}
+              {promoCode.trim() && priceQuote.quote.promoError ? (
+                <p className="text-[11px] text-red-600">{priceQuote.quote.promoError}</p>
+              ) : null}
+              <div className="pt-2 border-t border-amber-200/80 text-[11px] leading-relaxed text-gray-600">
+                <p>
+                  Avg. occupancy (your stay):{" "}
+                  <strong>
+                    {(priceQuote.quote.averageOccupancyRate * 100).toFixed(1)}%
+                  </strong>
+                  {" · "}
+                  Lead-time × peak × demand ={" "}
+                  <strong>{priceQuote.quote.combinedFactor.toFixed(2)}</strong>
+                </p>
+                <p className="mt-1">
+                  ε ≈ {priceQuote.quote.priceElasticityEstimate.toFixed(2)} · RevPAR
+                  target ADR {formatCurrency(priceQuote.quote.recommendedRevPARTarget)}
+                </p>
+              </div>
+              <p className="text-[10px] text-gray-500 pt-1">
+                Early booking discounts and last-minute surges apply. Final price is
+                confirmed at checkout.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label
+            htmlFor="promoCode"
+            className="block text-sm font-medium text-gray-900 mb-1"
+          >
+            Promo Code
+          </label>
+          <input
+            type="text"
+            id="promoCode"
+            name="promoCode"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+            placeholder="Contoh: HEMAT10 / POTONG50"
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            Gunakan kode promo persentase atau nominal saat checkout.
+          </p>
+        </div>
+
         <div className="mb-4">
           <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-1">
             Your Name
@@ -229,10 +402,14 @@ const ReserveForm = ({
             {
               "opacity-50 cursor-progress": isPending,
               "opacity-60 cursor-not-allowed":
-                Boolean(clientError.name) || Boolean(clientError.phone),
+                Boolean(clientError.name) ||
+                Boolean(clientError.phone) ||
+                hasDateConflict,
             },
           )}
-          disabled={isPending || Boolean(clientError.name) || Boolean(clientError.phone)}
+          disabled={
+            isPending || Boolean(clientError.name) || Boolean(clientError.phone) || hasDateConflict
+          }
         >
           {isPending ? "Loading..." : "Reserve"}
         </button>

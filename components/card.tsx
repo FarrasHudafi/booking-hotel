@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
-import { Room } from "@prisma/client";
+import type { Room } from "@prisma/client";
 
-const Card = ({ room }: { room: Room }) => {
+type RoomCard = Pick<Room, "id" | "name" | "image" | "price" | "capacity">;
+
+const Card = ({ room }: { room: RoomCard }) => {
   return (
     <div className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
       {/* Image */}
@@ -38,18 +40,18 @@ const Card = ({ room }: { room: Room }) => {
           {room.name}
         </h3>
         <div className="border-t border-dashed border-gray-100 mb-4" />
-        <div className="flex items-center justify-between mt-auto">
-          <div>
-            <span className="text-xl font-extrabold text-gray-900">
-              {formatCurrency(room.price)}
-            </span>
-            <span className="text-xs text-gray-400 font-medium ml-1">
-              /Night
-            </span>
+        <div className="flex items-end justify-between gap-3 flex-wrap mt-auto">
+          <div className="min-w-0">
+            {/* <div className="flex items-baseline gap-1 flex-wrap">
+              <span className="text-xl font-extrabold text-gray-900">
+                {formatCurrency(room.price)}
+              </span>
+              <span className="text-xs text-gray-400 font-medium">/Night</span>
+            </div> */}
           </div>
           <Link
             href={`/room/${room.id}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 active:scale-95 transition-all duration-150 shadow-sm shadow-orange-200"
+            className="inline-flex shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 active:scale-95 transition-all duration-150 shadow-sm shadow-orange-200"
           >
             Book Now
             <svg

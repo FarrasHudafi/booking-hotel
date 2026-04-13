@@ -11,6 +11,8 @@ import {
 } from "react-icons/io5";
 import { formatCurrency } from "@/lib/utils";
 import ReserveForm from "./reserve-form";
+import Card from "@/components/card";
+import { getSimilarRooms } from "@/lib/recommendation";
 
 const RoomDetail = async ({ roomId }: { roomId: string }) => {
   const [room, disableDate] = await Promise.all([
@@ -20,14 +22,16 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
 
   if (!room || !disableDate) return notFound();
 
+  const similarRooms = await getSimilarRooms(roomId, 3);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
-        {/* Top Section — Image + Booking Card side by side */}
-        <div className="grid lg:grid-cols-12 gap-8 mb-10">
-          {/* Left — Image + Room Info */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* Contained Image */}
+        {/* Main layout — Left content + Right sticky booking card */}
+        <div className="grid lg:grid-cols-12 gap-8">
+          {/* Left — Room content */}
+          <div className="lg:col-span-8 flex flex-col gap-8">
+            {/* Image */}
             <div className="relative w-full overflow-hidden rounded-3xl shadow-md aspect-video">
               <Image
                 src={room.image}
@@ -52,13 +56,15 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
                     {room.name}
                   </h1>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
+                {/* <div className="text-right">
+                  <p className="text-xs text-gray-400 mb-0.5">Base rate from</p>
                   <p className="text-3xl font-bold text-yellow-500">
                     {formatCurrency(room.price)}
                   </p>
-                  <p className="text-xs text-gray-400">per night</p>
-                </div>
+                  <p className="text-xs text-gray-400">
+                    per night · dynamic pricing at checkout
+                  </p>
+                </div> */}
               </div>
 
               {/* Quick Meta Pills */}
@@ -85,43 +91,8 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Right — Booking Card */}
-          <div className="lg:col-span-4">
-            <div className="sticky top-24">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="bg-slate-900 px-6 py-5">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
-                    Price per night
-                  </p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-3xl font-bold text-yellow-400">
-                      {formatCurrency(room.price)}
-                    </span>
-                    <span className="text-gray-500 text-sm mb-1">/night</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-3">
-                    <IoPeopleOutline className="size-3.5 text-gray-400" />
-                    <span className="text-xs text-gray-400">
-                      Up to {room.capacity}{" "}
-                      {room.capacity === 1 ? "person" : "people"}
-                    </span>
-                  </div>
-                </div>
-                <div className="px-6 py-6">
-                  <ReserveForm room={room} disableDate={disableDate} />
-                </div>
-              </div>
-              <p className="text-xs text-center text-gray-400 mt-3">
-                🔒 Secure booking · No hidden fees
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Section — About & Amenities */}
-        <div className="lg:col-span-8 flex flex-col gap-8 max-w-[calc(66.666%+0.5rem)] pr-0 lg:pr-4">
+            {/* Bottom Section — About & Amenities */}
           {/* About */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
@@ -152,6 +123,27 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
             </div>
           </div>
 
+          {/* Similar Rooms */}
+          {similarRooms.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-7">
+              <div className="flex items-end justify-between mb-5">
+                <div>
+                  <p className="text-[10px] font-bold tracking-[0.15em] text-orange-400 uppercase mb-1">
+                    Recommendation
+                  </p>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Similar rooms you might like
+                  </h2>
+                </div>
+              </div>
+              <div className="grid gap-5 md:grid-cols-3">
+                {similarRooms.map((r) => (
+                  <Card key={r.id} room={r} />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Trust Badges */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-10">
             {[
@@ -181,6 +173,44 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
                 </div>
               </div>
             ))}
+          </div>
+          </div>
+
+          {/* Right — Booking Card */}
+          <div className="lg:col-span-4">
+            <div>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+                {/* card base rate */}
+                {/* <div className="bg-slate-900 px-6 py-5">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+                    Base rate / night
+                  </p>
+                  <div className="flex items-end gap-1">
+                    <span className="text-3xl font-bold text-yellow-400">
+                      {formatCurrency(room.price)}
+                    </span>
+                    <span className="text-gray-500 text-sm mb-1">/night</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+                    Final nightly rate uses occupancy, seasonality, and lead-time
+                    (RevPAR-aware).
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-3">
+                    <IoPeopleOutline className="size-3.5 text-gray-400" />
+                    <span className="text-xs text-gray-400">
+                      Up to {room.capacity}{" "}
+                      {room.capacity === 1 ? "person" : "people"}
+                    </span>
+                  </div>
+                </div> */}
+                <div className="px-6 py-6">
+                  <ReserveForm room={room} disableDate={disableDate} />
+                </div>
+              </div>
+              <p className="text-xs text-center text-gray-400 mt-3">
+                🔒 Secure booking · No hidden fees
+              </p>
+            </div>
           </div>
         </div>
       </div>

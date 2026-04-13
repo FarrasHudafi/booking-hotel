@@ -239,7 +239,8 @@ const ReservationDetail = async ({
                       {reservation.Room.name}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {formatCurrency(reservation.Room.price)} / night
+                      Locked rate {formatCurrency(reservation.price)} / night · list
+                      base {formatCurrency(reservation.Room.price)}
                     </p>
                   </td>
                   <td className="px-5 py-4 text-gray-700">

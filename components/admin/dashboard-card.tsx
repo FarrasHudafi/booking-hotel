@@ -3,18 +3,24 @@ import {
   LuShoppingCart,
   LuUsers,
   LuTrendingUp,
+  LuGauge,
 } from "react-icons/lu";
-import { getRevenueAndReserve, getTotalCustomer } from "@/lib/data";
+import {
+  getRevenueAndReserve,
+  getTotalCustomer,
+  getRevPARMetricsLastDays,
+} from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 const DashboardCard = async () => {
-  const [data, totalCustomer] = await Promise.all([
+  const [data, totalCustomer, revparMetrics] = await Promise.all([
     getRevenueAndReserve(),
     getTotalCustomer(),
+    getRevPARMetricsLastDays(30),
   ]);
 
-  if (!data || !totalCustomer) {
+  if (!data || !totalCustomer || !revparMetrics) {
     return notFound();
   }
 
@@ -48,8 +54,11 @@ const DashboardCard = async () => {
     },
   ];
 
+  const occPct = (revparMetrics.occupancyRate * 100).toFixed(1);
+
   return (
-    <div className="grid md:grid-cols-3 gap-5 pb-10 mt-2">
+    <div className="pb-10">
+    <div className="grid md:grid-cols-3 gap-5 mt-2">
       {cards.map(({ title, value, icon, sub, accent, iconBg, trend }) => (
         <div
           key={title}
@@ -83,6 +92,66 @@ const DashboardCard = async () => {
           </div>
         </div>
       ))}
+    </div>
+
+    <div className="mt-6 rounded-2xl border border-amber-100 bg-linear-to-br from-amber-50/90 to-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
+            Dynamic pricing · last 30 days
+          </p>
+          <h2 className="text-lg font-bold text-gray-900 mt-1">
+            RevPAR &amp; elasticity snapshot
+          </h2>
+          <p className="text-xs text-gray-500 mt-1 max-w-xl">
+            RevPAR = revenue ÷ available room-nights. ADR × occupancy cross-check
+            (decomposed RevPAR) validates the booking curve used for surge and
+            early-booking discounts.
+          </p>
+        </div>
+        <div className="p-3 rounded-xl bg-amber-100 text-amber-700">
+          <LuGauge className="size-6" />
+        </div>
+      </div>
+
+      <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+        <div className="rounded-xl bg-white/80 border border-amber-100/80 p-4">
+          <p className="text-xs text-gray-500">RevPAR (30d)</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5">
+            {formatCurrency(Math.round(revparMetrics.revpar))}
+          </p>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100/80 p-4">
+          <p className="text-xs text-gray-500">ADR (implied)</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5">
+            {formatCurrency(revparMetrics.adr)}
+          </p>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100/80 p-4">
+          <p className="text-xs text-gray-500">Occupancy (sold / capacity)</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5">{occPct}%</p>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100/80 p-4">
+          <p className="text-xs text-gray-500">ε demand (est.)</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5">
+            {revparMetrics.priceElasticityEstimate.toFixed(2)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-6 text-xs text-gray-600 border-t border-amber-100/80 pt-4">
+        <span>
+          ADR × Occ (check):{" "}
+          <strong>{formatCurrency(Math.round(revparMetrics.decomposedRevPAR))}</strong>
+        </span>
+        <span>
+          Sold room-nights: <strong>{revparMetrics.soldRoomNights}</strong>
+        </span>
+        <span>
+          Available room-nights: <strong>{revparMetrics.availableRoomNights}</strong>
+        </span>
+      </div>
+    </div>
     </div>
   );
 };
