@@ -13,6 +13,11 @@ import {
   estimatePriceElasticityOfDemand,
 } from "@/lib/dynamic-pricing";
 import { applyPromoDiscount } from "@/lib/promo";
+import {
+  predictMLPrice,
+  getHolidaysInRange,
+  type MLPricePrediction,
+} from "@/lib/ml-pricing";
 
 export const getAmenities = async () => {
   const session = await auth();
@@ -370,21 +375,67 @@ export const quoteDynamicPriceForRoom = async (
   checkOut: Date,
   bookingDate: Date = new Date(),
   promoCode?: string,
+  useMLPricing: boolean = true,
 ) => {
   const room = await prisma.room.findUnique({ where: { id: roomId } });
   if (!room) return null;
 
   const { occupancyRate } = await getOccupancyForStayWindow(checkIn, checkOut);
-  const breakdown = computeDynamicNightlyPrice({
-    basePricePerNight: room.price,
-    checkIn,
-    checkOut,
-    bookingDate,
-    occupancyRate,
-  });
+
+  let breakdown: ReturnType<typeof computeDynamicNightlyPrice>;
+  let mlPrediction: MLPricePrediction | null = null;
+
+  if (useMLPricing) {
+    // Gunakan ML-based pricing (ridge regression, trained on historical reservations)
+    mlPrediction = await predictMLPrice({
+      basePrice: room.price,
+      checkIn,
+      checkOut,
+      bookingDate,
+      occupancyRate,
+    });
+
+    // Konversi ML prediction ke format yang kompatibel
+    breakdown = {
+      basePricePerNight: mlPrediction.basePrice,
+      effectivePricePerNight: mlPrediction.predictedPrice,
+      combinedFactor: mlPrediction.breakdown.combinedMultiplier,
+      leadTimeFactor: mlPrediction.breakdown.leadTimeFactor,
+      peakSeasonFactor: mlPrediction.breakdown.seasonalFactor,
+      demandFactor: mlPrediction.breakdown.demandFactor,
+      priceElasticityEstimate: 1 - mlPrediction.confidence,
+      recommendedRevPARTarget: mlPrediction.predictedPrice * 0.85,
+      averageOccupancyRate: occupancyRate,
+      stayNights:
+        mlPrediction.predictedPrice > 0
+          ? Math.max(1, differenceInCalendarDays(checkOut, checkIn))
+          : 1,
+      leadDays: Math.max(0, differenceInCalendarDays(checkIn, bookingDate)),
+    };
+  } else {
+    // Fallback ke rule-based pricing
+    breakdown = computeDynamicNightlyPrice({
+      basePricePerNight: room.price,
+      checkIn,
+      checkOut,
+      bookingDate,
+      occupancyRate,
+    });
+  }
 
   const subtotalStay = breakdown.stayNights * breakdown.effectivePricePerNight;
   const promo = applyPromoDiscount(subtotalStay, promoCode);
+
+  // Dapatkan informasi holiday jika ada
+  const holidays = getHolidaysInRange(checkIn, checkOut);
+  const holidayInfo =
+    holidays.length > 0
+      ? holidays.map((h) => ({
+          name: h.name,
+          date: h.date.toISOString(),
+          type: h.type,
+        }))
+      : null;
 
   return {
     roomId: room.id,
@@ -398,6 +449,16 @@ export const quoteDynamicPriceForRoom = async (
     totalAfterDiscount: promo.totalAfterDiscount,
     promoRawInputCode: promo.rawInputCode,
     promoError: promo.error ?? null,
+    // ML-specific data
+    useMLPricing,
+    mlPrediction: mlPrediction
+      ? {
+          confidence: mlPrediction.confidence,
+          factors: mlPrediction.factors,
+          breakdown: mlPrediction.breakdown,
+        }
+      : null,
+    holidayInfo,
   };
 };
 
@@ -419,7 +480,9 @@ export const getAvailabilityByRoomName = async (
     throw new Error("Invalid dates");
   }
 
-  const rooms = await prisma.room.findMany({ select: { id: true, name: true } });
+  const rooms = await prisma.room.findMany({
+    select: { id: true, name: true },
+  });
   const totalUnitsByType: Record<string, number> = {};
   const roomIdToType = new Map<string, string>();
   for (const r of rooms) {

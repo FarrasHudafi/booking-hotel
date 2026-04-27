@@ -1,5 +1,11 @@
 "use client";
-import { forwardRef, useActionState, useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  useActionState,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { addDays, differenceInCalendarDays, subDays } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -28,7 +34,8 @@ function isSelectionOverlappingExisting(
   for (const r of disableDate) {
     const occupiedStart = r.startDate;
     const occupiedEndExclusive = r.endDate; // checkout date is not occupied
-    if (rangesOverlap(start, end, occupiedStart, occupiedEndExclusive)) return true;
+    if (rangesOverlap(start, end, occupiedStart, occupiedEndExclusive))
+      return true;
   }
   return false;
 }
@@ -57,7 +64,9 @@ const CalendarInput = forwardRef<
     >
       <span className="flex items-center gap-2">
         <IoCalendarOutline className="size-5 text-gray-500" aria-hidden />
-        <span className={clsx("flex-1", value ? "text-gray-900" : "text-gray-400")}>
+        <span
+          className={clsx("flex-1", value ? "text-gray-900" : "text-gray-400")}
+        >
           {value || placeholder || "Select a date"}
         </span>
       </span>
@@ -86,7 +95,10 @@ const ReserveForm = ({
         break;
       }
     }
-    return { initialStartDate: candidate, initialEndDate: addDays(candidate, 1) };
+    return {
+      initialStartDate: candidate,
+      initialEndDate: addDays(candidate, 1),
+    };
   }, [disableDate]);
 
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -94,18 +106,19 @@ const ReserveForm = ({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [promoCode, setPromoCode] = useState("");
-  const [clientError, setClientError] = useState<{ name?: string; phone?: string }>(
-    {},
-  );
+  const [clientError, setClientError] = useState<{
+    name?: string;
+    phone?: string;
+  }>({});
 
   const [state, formAction, isPending] = useActionState(
     createReserve.bind(null, room.id, startDate, endDate),
     null,
   );
 
-  const [priceQuote, setPriceQuote] = useState<
-    Awaited<ReturnType<typeof quoteDynamicPrice>> | null
-  >(null);
+  const [priceQuote, setPriceQuote] = useState<Awaited<
+    ReturnType<typeof quoteDynamicPrice>
+  > | null>(null);
 
   useEffect(() => {
     // if the current selection becomes invalid (or initial was disabled), snap to first available
@@ -141,7 +154,11 @@ const ReserveForm = ({
   });
 
   const nights = Math.max(1, differenceInCalendarDays(endDate, startDate));
-  const hasDateConflict = isSelectionOverlappingExisting(startDate, endDate, disableDate);
+  const hasDateConflict = isSelectionOverlappingExisting(
+    startDate,
+    endDate,
+    disableDate,
+  );
 
   return (
     <div>
@@ -194,7 +211,9 @@ const ReserveForm = ({
               <DatePicker
                 id="checkout"
                 selected={endDate}
-                onChange={(date: Date | null) => setEndDate(date ?? initialEndDate)}
+                onChange={(date: Date | null) =>
+                  setEndDate(date ?? initialEndDate)
+                }
                 minDate={addDays(startDate, 1)}
                 dateFormat={"dd-MM-yyyy"}
                 wrapperClassName="w-full"
@@ -213,8 +232,8 @@ const ReserveForm = ({
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            {nights} {nights === 1 ? "night" : "nights"} • Check-out must be at least 1
-            day after check-in.
+            {nights} {nights === 1 ? "night" : "nights"} • Check-out must be at
+            least 1 day after check-in.
           </p>
           <div aria-live="polite" aria-atomic="true">
             <p className="mt-2 text-sm text-red-500">{state?.messageDate}</p>
@@ -247,7 +266,9 @@ const ReserveForm = ({
               </div>
               <div className="flex justify-between gap-3 text-xs text-gray-600">
                 <span>Base rate</span>
-                <span>{formatCurrency(priceQuote.quote.basePricePerNight)}</span>
+                <span>
+                  {formatCurrency(priceQuote.quote.basePricePerNight)}
+                </span>
               </div>
               <div className="flex justify-between gap-3 text-xs text-gray-600">
                 <span>Est. stay total</span>
@@ -269,44 +290,118 @@ const ReserveForm = ({
                 </span>
               </div>
               <div className="flex justify-between gap-3 text-sm">
-                <span className="font-semibold text-gray-700">Total after promo</span>
+                <span className="font-semibold text-gray-700">
+                  Total after promo
+                </span>
                 <span className="font-bold text-gray-900">
                   {formatCurrency(priceQuote.quote.totalAfterDiscount)}
                 </span>
               </div>
               {priceQuote.quote.promoCode ? (
                 <p className="text-[11px] text-green-700">
-                  Promo aktif: <strong>{priceQuote.quote.promoCode}</strong>{" "}
-                  ({priceQuote.quote.promoDescription})
+                  Promo aktif: <strong>{priceQuote.quote.promoCode}</strong> (
+                  {priceQuote.quote.promoDescription})
                 </p>
               ) : null}
               {promoCode.trim() && priceQuote.quote.promoError ? (
-                <p className="text-[11px] text-red-600">{priceQuote.quote.promoError}</p>
+                <p className="text-[11px] text-red-600">
+                  {priceQuote.quote.promoError}
+                </p>
               ) : null}
               <div className="pt-2 border-t border-amber-200/80 text-[11px] leading-relaxed text-gray-600">
-                <p>
-                  Avg. occupancy (your stay):{" "}
-                  <strong>
-                    {(priceQuote.quote.averageOccupancyRate * 100).toFixed(1)}%
-                  </strong>
-                  {" · "}
-                  Lead-time × peak × demand ={" "}
-                  <strong>{priceQuote.quote.combinedFactor.toFixed(2)}</strong>
-                </p>
-                <p className="mt-1">
-                  ε ≈ {priceQuote.quote.priceElasticityEstimate.toFixed(2)} · RevPAR
-                  target ADR {formatCurrency(priceQuote.quote.recommendedRevPARTarget)}
-                </p>
+                {priceQuote.quote.useMLPricing &&
+                priceQuote.quote.mlPrediction ? (
+                  <>
+                    {/* ML Pricing Info */}
+                    <p className="font-semibold text-amber-800 mb-1">
+                      🤖 ML-Based Dynamic Pricing
+                    </p>
+                    <p>
+                      Confidence:{" "}
+                      <strong>
+                        {(
+                          priceQuote.quote.mlPrediction.confidence * 100
+                        ).toFixed(0)}
+                        %
+                      </strong>
+                      {" · "}
+                      Combined factor:{" "}
+                      <strong>
+                        {priceQuote.quote.mlPrediction.breakdown.combinedMultiplier.toFixed(
+                          2,
+                        )}
+                      </strong>
+                    </p>
+                    {/* Price Factors */}
+                    <div className="mt-2 space-y-1">
+                      {priceQuote.quote.mlPrediction.factors.map(
+                        (factor, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span className="text-gray-500">{factor.name}</span>
+                            <span
+                              className={
+                                factor.impact > 1
+                                  ? "text-orange-600"
+                                  : "text-green-600"
+                              }
+                            >
+                              {factor.impact > 1 ? "+" : ""}
+                              {((factor.impact - 1) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                    {/* Holiday Info */}
+                    {priceQuote.quote.holidayInfo &&
+                      priceQuote.quote.holidayInfo.length > 0 && (
+                        <div className="mt-2 p-2 bg-red-50 rounded text-red-700">
+                          <p className="font-semibold">
+                            🎉 Holiday Period Detected:
+                          </p>
+                          {priceQuote.quote.holidayInfo.map((h, idx) => (
+                            <p key={idx} className="text-xs">
+                              • {h.name} (
+                              {new Date(h.date).toLocaleDateString("id-ID")})
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      Avg. occupancy (your stay):{" "}
+                      <strong>
+                        {(priceQuote.quote.averageOccupancyRate * 100).toFixed(
+                          1,
+                        )}
+                        %
+                      </strong>
+                      {" · "}
+                      Lead-time × peak × demand ={" "}
+                      <strong>
+                        {priceQuote.quote.combinedFactor.toFixed(2)}
+                      </strong>
+                    </p>
+                    <p className="mt-1">
+                      ε ≈ {priceQuote.quote.priceElasticityEstimate.toFixed(2)}{" "}
+                      · RevPAR target ADR{" "}
+                      {formatCurrency(priceQuote.quote.recommendedRevPARTarget)}
+                    </p>
+                  </>
+                )}
               </div>
               <p className="text-[10px] text-gray-500 pt-1">
-                Early booking discounts and last-minute surges apply. Final price is
-                confirmed at checkout.
+                {priceQuote.quote.useMLPricing
+                  ? "Price predicted using ML model based on historical data, holidays, and demand patterns."
+                  : "Early booking discounts and last-minute surges apply. Final price is confirmed at checkout."}
               </p>
             </div>
           )}
         </div>
 
-        <div className="mb-4">
+        {/* <div className="mb-4">
           <label
             htmlFor="promoCode"
             className="block text-sm font-medium text-gray-900 mb-1"
@@ -325,10 +420,13 @@ const ReserveForm = ({
           <p className="mt-2 text-xs text-gray-500">
             Gunakan kode promo persentase atau nominal saat checkout.
           </p>
-        </div>
+        </div> */}
 
         <div className="mb-4">
-          <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-1">
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-gray-900 mb-1"
+          >
             Your Name
           </label>
           <input
@@ -366,7 +464,10 @@ const ReserveForm = ({
           </div>
         </div>
         <div className="mb-4">
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-900 mb-1">
+          <label
+            htmlFor="phone"
+            className="block text-sm font-medium text-gray-900 mb-1"
+          >
             Phone Number
           </label>
           <input
@@ -384,7 +485,9 @@ const ReserveForm = ({
               const hadLetter = /[a-zA-Z]/.test(raw);
               setClientError((prev) => ({
                 ...prev,
-                phone: hadLetter ? "Phone number must contain digits only." : undefined,
+                phone: hadLetter
+                  ? "Phone number must contain digits only."
+                  : undefined,
               }));
             }}
             className="py-2 px-4 rounded-md border border-gray-300 w-full bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
@@ -408,7 +511,10 @@ const ReserveForm = ({
             },
           )}
           disabled={
-            isPending || Boolean(clientError.name) || Boolean(clientError.phone) || hasDateConflict
+            isPending ||
+            Boolean(clientError.name) ||
+            Boolean(clientError.phone) ||
+            hasDateConflict
           }
         >
           {isPending ? "Loading..." : "Reserve"}
