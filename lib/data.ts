@@ -7,7 +7,6 @@ import {
   type IntervalBooking,
 } from "@/lib/availability";
 import {
-  computeDynamicNightlyPrice,
   computeRevPAR,
   decomposeRevPAR,
   estimatePriceElasticityOfDemand,
@@ -375,53 +374,34 @@ export const quoteDynamicPriceForRoom = async (
   checkOut: Date,
   bookingDate: Date = new Date(),
   promoCode?: string,
-  useMLPricing: boolean = true,
 ) => {
   const room = await prisma.room.findUnique({ where: { id: roomId } });
   if (!room) return null;
 
   const { occupancyRate } = await getOccupancyForStayWindow(checkIn, checkOut);
 
-  let breakdown: ReturnType<typeof computeDynamicNightlyPrice>;
-  let mlPrediction: MLPricePrediction | null = null;
+  // Pricing 100% via ridge regression (lib/ml-pricing.ts).
+  const mlPrediction: MLPricePrediction = await predictMLPrice({
+    basePrice: room.price,
+    checkIn,
+    checkOut,
+    bookingDate,
+    occupancyRate,
+  });
 
-  if (useMLPricing) {
-    // Gunakan ML-based pricing (ridge regression, trained on historical reservations)
-    mlPrediction = await predictMLPrice({
-      basePrice: room.price,
-      checkIn,
-      checkOut,
-      bookingDate,
-      occupancyRate,
-    });
-
-    // Konversi ML prediction ke format yang kompatibel
-    breakdown = {
-      basePricePerNight: mlPrediction.basePrice,
-      effectivePricePerNight: mlPrediction.predictedPrice,
-      combinedFactor: mlPrediction.breakdown.combinedMultiplier,
-      leadTimeFactor: mlPrediction.breakdown.leadTimeFactor,
-      peakSeasonFactor: mlPrediction.breakdown.seasonalFactor,
-      demandFactor: mlPrediction.breakdown.demandFactor,
-      priceElasticityEstimate: 1 - mlPrediction.confidence,
-      recommendedRevPARTarget: mlPrediction.predictedPrice * 0.85,
-      averageOccupancyRate: occupancyRate,
-      stayNights:
-        mlPrediction.predictedPrice > 0
-          ? Math.max(1, differenceInCalendarDays(checkOut, checkIn))
-          : 1,
-      leadDays: Math.max(0, differenceInCalendarDays(checkIn, bookingDate)),
-    };
-  } else {
-    // Fallback ke rule-based pricing
-    breakdown = computeDynamicNightlyPrice({
-      basePricePerNight: room.price,
-      checkIn,
-      checkOut,
-      bookingDate,
-      occupancyRate,
-    });
-  }
+  const breakdown = {
+    basePricePerNight: mlPrediction.basePrice,
+    effectivePricePerNight: mlPrediction.predictedPrice,
+    combinedFactor: mlPrediction.breakdown.combinedMultiplier,
+    leadTimeFactor: mlPrediction.breakdown.leadTimeFactor,
+    peakSeasonFactor: mlPrediction.breakdown.seasonalFactor,
+    demandFactor: mlPrediction.breakdown.demandFactor,
+    priceElasticityEstimate: 1 - mlPrediction.confidence,
+    recommendedRevPARTarget: mlPrediction.predictedPrice * 0.85,
+    averageOccupancyRate: occupancyRate,
+    stayNights: Math.max(1, differenceInCalendarDays(checkOut, checkIn)),
+    leadDays: Math.max(0, differenceInCalendarDays(checkIn, bookingDate)),
+  };
 
   const subtotalStay = breakdown.stayNights * breakdown.effectivePricePerNight;
   const promo = applyPromoDiscount(subtotalStay, promoCode);
@@ -449,15 +429,14 @@ export const quoteDynamicPriceForRoom = async (
     totalAfterDiscount: promo.totalAfterDiscount,
     promoRawInputCode: promo.rawInputCode,
     promoError: promo.error ?? null,
-    // ML-specific data
-    useMLPricing,
-    mlPrediction: mlPrediction
-      ? {
-          confidence: mlPrediction.confidence,
-          factors: mlPrediction.factors,
-          breakdown: mlPrediction.breakdown,
-        }
-      : null,
+    // ML-specific data — pricing selalu ML (ridge regression). Flag dipertahankan
+    // agar consumer (components/reserve-form.tsx) tidak perlu diubah.
+    useMLPricing: true,
+    mlPrediction: {
+      confidence: mlPrediction.confidence,
+      factors: mlPrediction.factors,
+      breakdown: mlPrediction.breakdown,
+    },
     holidayInfo,
   };
 };
