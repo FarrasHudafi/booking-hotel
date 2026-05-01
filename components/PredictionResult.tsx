@@ -2,7 +2,12 @@
 
 import { FC } from "react";
 import { PredictionResponse } from "@/lib/ml-client";
-import { CalibrationOutput, Season } from "@/lib/calibration";
+import {
+  CalibrationOutput,
+  MAX_MULTIPLIER,
+  MIN_MULTIPLIER,
+  Season,
+} from "@/lib/calibration";
 import type { RoomLite } from "@/components/PredictionForm";
 
 interface PredictionResultProps {
@@ -110,6 +115,25 @@ const PredictionResult: FC<PredictionResultProps> = ({
                 className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 ${SEASON_TONE[season]}`}
               >
                 {SEASON_LABEL[season]}
+              </span>
+            ) : null}
+            {calibration.frisatNights > 0 ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-3 py-1 bg-rose-100 text-rose-900 border-rose-200"
+                title={`Uplift weekend Indonesia: ${calibration.frisatNights} malam Jum/Sab dari total ${calibration.totalNights}`}
+              >
+                Weekend ID +{((calibration.weekendUplift - 1) * 100).toFixed(1)}%
+              </span>
+            ) : null}
+            {calibration.clamped ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-3 py-1 bg-purple-100 text-purple-900 border-purple-200"
+                title={`Multiplier mentah ${calibration.rawMultiplier.toFixed(2)}× di-clamp ke ${calibration.multiplier.toFixed(2)}×`}
+              >
+                Clamped{" "}
+                {calibration.clamped === "low"
+                  ? `↓ ${MIN_MULTIPLIER}×`
+                  : `↑ ${MAX_MULTIPLIER}×`}
               </span>
             ) : null}
           </div>

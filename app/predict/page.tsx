@@ -8,6 +8,7 @@ export default async function PredictPage() {
     id: r.id,
     name: r.name,
     price: r.price,
+    capacity: r.capacity,
   }));
 
   return <PredictClient rooms={lite} />;

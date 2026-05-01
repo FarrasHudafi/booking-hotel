@@ -15,6 +15,8 @@ import {
 } from "@/lib/ml-client";
 import {
   CalibrationOutput,
+  MAX_MULTIPLIER,
+  MIN_MULTIPLIER,
   Season,
   calibrate,
   classifySeason,
@@ -109,6 +111,8 @@ export default function PredictClient({ rooms }: PredictClientProps) {
         const calib = calibrate({
           predictedEur: response.predicted_adr,
           basePriceIdr: room.price,
+          frisatNights: derived.frisat_nights,
+          totalNights: derived.total_nights,
         });
         setResult(response);
         setCalibration(calib);
@@ -155,7 +159,8 @@ export default function PredictClient({ rooms }: PredictClientProps) {
             Sistem Prediksi Harga Booking Hotel
           </h1>
           <p className="text-blue-100 text-sm mt-1">
-            Estimasi harga kamar berdasarkan tanggal dan tipe kamar
+            Resort Hotel · estimasi harga kamar berdasarkan tanggal dan tipe
+            kamar
           </p>
         </header>
 
@@ -257,6 +262,32 @@ function TechnicalDetails({
           dari basis data hotel.
         </p>
 
+        {calibration.clamped ? (
+          <div className="rounded-md bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900 space-y-1">
+            <p className="font-semibold">
+              Penyesuaian out-of-distribution diterapkan:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>
+                Multiplier mentah{" "}
+                <span className="font-semibold">
+                  {calibration.rawMultiplier.toFixed(2)}×
+                </span>{" "}
+                di-clamp ke{" "}
+                <span className="font-semibold">
+                  {calibration.multiplier.toFixed(2)}×
+                </span>{" "}
+                (batas{" "}
+                {calibration.clamped === "low"
+                  ? `bawah ${MIN_MULTIPLIER}×`
+                  : `atas ${MAX_MULTIPLIER}×`}
+                ). Sinyal bahwa kombinasi fitur input berada di tepi
+                distribusi training — clamp meredam outlier prediksi.
+              </li>
+            </ul>
+          </div>
+        ) : null}
+
         <div>
           <h4 className="font-semibold text-gray-800 mb-2">
             Diturunkan dari input pengguna
@@ -337,8 +368,16 @@ function TechnicalDetails({
               value={`€${calibration.predictedEur.toFixed(2)}`}
             />
             <Row
-              label="Multiplier"
-              value={`${calibration.multiplier.toFixed(4)}× (Δ ${calibration.deltaPct >= 0 ? "+" : ""}${calibration.deltaPct.toFixed(1)}%)`}
+              label="Raw multiplier (Antonio)"
+              value={`${calibration.rawMultiplier.toFixed(4)}×`}
+            />
+            <Row
+              label="Weekend uplift (ID)"
+              value={`${calibration.weekendUplift.toFixed(4)}× — ${calibration.frisatNights}/${calibration.totalNights} malam Jum/Sab`}
+            />
+            <Row
+              label="Multiplier (final)"
+              value={`${calibration.multiplier.toFixed(4)}× (Δ ${calibration.deltaPct >= 0 ? "+" : ""}${calibration.deltaPct.toFixed(1)}%)${calibration.clamped ? ` · clamp ${calibration.clamped}` : ""}`}
             />
             <Row
               label="Base price (DB)"
@@ -348,8 +387,13 @@ function TechnicalDetails({
           <p className="text-[11px] text-gray-500 mt-2">
             Rumus:{" "}
             <code className="bg-gray-100 px-1 rounded">
-              IDR = base_price × (predicted_eur ÷ mean_adr_eur)
+              IDR = base × clamp((eur ÷ mean) × (1 + 0.05 × frisat/total),{" "}
+              {MIN_MULTIPLIER}, {MAX_MULTIPLIER})
             </code>
+            <br />
+            Lapisan weekend uplift dikalibrasi dari koefisien{" "}
+            <code className="bg-gray-100 px-1 rounded">isFriSat</code> di
+            sistem dynamic-pricing lokal (~+5–6% per malam Jum/Sab).
           </p>
         </div>
       </div>

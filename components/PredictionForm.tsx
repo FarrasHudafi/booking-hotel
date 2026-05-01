@@ -42,6 +42,7 @@ export interface RoomLite {
   id: string;
   name: string;
   price: number; // IDR
+  capacity: number; // jumlah dewasa yang dapat ditampung kamar
 }
 
 const MONTH_NAMES: ArrivalMonth[] = [
@@ -59,16 +60,20 @@ const MONTH_NAMES: ArrivalMonth[] = [
   "December",
 ];
 
+// Model v2-resort hanya melayani Resort Hotel (lihat ml_backend/.env).
+// Form tidak menampilkan dropdown jenis hotel — selalu kirim "Resort Hotel".
+const FIXED_HOTEL_TYPE: HotelType = "Resort Hotel";
+
 // ---------------------------------------------------------------------------
 // State form yang ringkas.
+// Jumlah dewasa tidak diminta — di-derive dari kapasitas kamar yang dipilih
+// (Room.capacity di Postgres). children & babies di-default 0; bisa diubah
+// nanti bila perlu.
 // ---------------------------------------------------------------------------
 interface FormState {
-  hotel: HotelType | "";
   check_in: string; // ISO yyyy-mm-dd
   check_out: string; // ISO yyyy-mm-dd
   roomId: string; // Room.id dari Postgres
-  adults: number;
-  children: number;
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -80,12 +85,9 @@ const tomorrowISO = () => {
 };
 
 const DEFAULT_STATE: FormState = {
-  hotel: "",
   check_in: "",
   check_out: "",
   roomId: "",
-  adults: 2,
-  children: 0,
 };
 
 type Errors = Partial<Record<keyof FormState, string>>;
@@ -106,8 +108,16 @@ interface PredictionFormProps {
 export interface DerivedFeatures {
   lead_time: number;
   total_nights: number;
+  /** Antonio convention: Sabtu + Minggu (untuk dikirim ke model). */
   weekend_nights: number;
   week_nights: number;
+  /** Konvensi Indonesia: Jumat + Sabtu (untuk lapisan kalibrasi lokal). */
+  frisat_nights: number;
+  /**
+   * Tahun dari input user. Tetap dikirim ke API (schema BookingInput masih
+   * meminta field ini untuk backward compatibility), tapi backend meng-drop
+   * fitur ini saat preprocessing — jadi tidak mempengaruhi prediksi.
+   */
   arrival_date_year: number;
   arrival_date_month: ArrivalMonth;
   arrival_date_week_number: number;
@@ -147,7 +157,6 @@ const PredictionForm: FC<PredictionFormProps> = ({
 
   const validate = (s: FormState): Errors => {
     const e: Errors = {};
-    if (!s.hotel) e.hotel = "Pilih jenis hotel.";
     if (!s.roomId) e.roomId = "Pilih tipe kamar.";
 
     if (!s.check_in) e.check_in = "Pilih tanggal check-in.";
@@ -168,12 +177,6 @@ const PredictionForm: FC<PredictionFormProps> = ({
       }
     }
 
-    if (!Number.isInteger(s.adults) || s.adults < 1) {
-      e.adults = "Minimal 1 dewasa.";
-    }
-    if (!Number.isInteger(s.children) || s.children < 0) {
-      e.children = "Minimal 0.";
-    }
     return e;
   };
 
@@ -199,14 +202,21 @@ const PredictionForm: FC<PredictionFormProps> = ({
       1,
       Math.round((co.getTime() - ci.getTime()) / 86_400_000),
     );
+    // Klasifikasi malam:
+    // - weekendNights & weekNights: konvensi Antonio (Sabtu + Minggu = weekend),
+    //   dikirim ke model agar konsisten dengan training.
+    // - frisatNights: konvensi Indonesia (Jumat + Sabtu), dipakai oleh
+    //   lapisan kalibrasi lokal untuk uplift weekend ala pasar domestik.
     let weekendNights = 0;
     let weekNights = 0;
+    let frisatNights = 0;
     for (let i = 0; i < totalNights; i++) {
       const d = new Date(ci);
       d.setDate(d.getDate() + i);
-      const dow = d.getDay(); // 0=Sun, 6=Sat
+      const dow = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
       if (dow === 0 || dow === 6) weekendNights += 1;
       else weekNights += 1;
+      if (dow === 5 || dow === 6) frisatNights += 1;
     }
 
     const month = MONTH_NAMES[ci.getMonth()];
@@ -223,6 +233,7 @@ const PredictionForm: FC<PredictionFormProps> = ({
       total_nights: totalNights,
       weekend_nights: weekendNights,
       week_nights: weekNights,
+      frisat_nights: frisatNights,
       arrival_date_year: ci.getFullYear(),
       arrival_date_month: month,
       arrival_date_week_number: week,
@@ -231,10 +242,13 @@ const PredictionForm: FC<PredictionFormProps> = ({
     };
 
     const payload: BookingInput = {
-      // Input pengguna langsung
-      hotel: form.hotel as HotelType,
-      adults: form.adults,
-      children: form.children,
+      // Hotel dipaksa Resort Hotel — sesuai scope model v2-resort.
+      hotel: FIXED_HOTEL_TYPE,
+      // Jumlah dewasa di-derive dari kapasitas kamar (Room.capacity).
+      // children di-default 0; ini bisa diekspos kembali jika di kemudian
+      // hari ada kebutuhan pricing per family bundle.
+      adults: Math.max(1, selectedRoom.capacity),
+      children: 0,
       reserved_room_type: roomCode,
       assigned_room_type: roomCode,
 
@@ -276,20 +290,14 @@ const PredictionForm: FC<PredictionFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-      <Section title="Detail pemesanan">
-        <Field label="Jenis hotel" error={mergedErrors.hotel} fullWidth>
-          <select
-            className={inputClass}
-            value={form.hotel}
-            onChange={(e) => update("hotel", e.target.value as HotelType)}
-            disabled={isPending}
-          >
-            <option value="">Pilih jenis hotel (City Hotel / Resort Hotel)</option>
-            <option value="City Hotel">City Hotel</option>
-            <option value="Resort Hotel">Resort Hotel</option>
-          </select>
-        </Field>
+      <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-2 text-xs text-blue-900">
+        Model prediksi v2-resort fokus pada{" "}
+        <span className="font-semibold">Resort Hotel</span>. Karakteristik
+        seasonality &amp; weekend factor pada segmen ini cocok untuk hotel di
+        destinasi wisata.
+      </div>
 
+      <Section title="Detail pemesanan">
         <Field label="Tanggal check-in" error={mergedErrors.check_in}>
           <input
             type="date"
@@ -318,7 +326,7 @@ const PredictionForm: FC<PredictionFormProps> = ({
           hint={
             rooms.length === 0
               ? "Tidak ada kamar di basis data. Tambahkan kamar di /admin terlebih dahulu."
-              : "Harga base diambil langsung dari basis data hotel."
+              : "Harga base & jumlah tamu diambil dari basis data hotel."
           }
           fullWidth
         >
@@ -335,39 +343,8 @@ const PredictionForm: FC<PredictionFormProps> = ({
             </option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name} — {formatRupiah(r.price)} / malam
-              </option>
-            ))}
-          </select>
-        </Field>
-      </Section>
-
-      <Section title="Jumlah tamu">
-        <Field label="Dewasa" error={mergedErrors.adults}>
-          <select
-            className={inputClass}
-            value={form.adults}
-            onChange={(e) => update("adults", Number(e.target.value))}
-            disabled={isPending}
-          >
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>
-                {n} dewasa
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Anak-anak" error={mergedErrors.children}>
-          <select
-            className={inputClass}
-            value={form.children}
-            onChange={(e) => update("children", Number(e.target.value))}
-            disabled={isPending}
-          >
-            {[0, 1, 2, 3, 4].map((n) => (
-              <option key={n} value={n}>
-                {n} anak
+                {r.name} — {formatRupiah(r.price)} / malam · maks {r.capacity}{" "}
+                {r.capacity > 1 ? "tamu" : "tamu"}
               </option>
             ))}
           </select>

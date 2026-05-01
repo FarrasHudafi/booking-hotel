@@ -19,11 +19,39 @@
 
 import { ArrivalMonth } from "@/lib/ml-client";
 
-export const DATASET_MEAN_ADR_EUR = 97.04;
+// Mean ADR pada subset training Resort Hotel (v2-resort).
+// Sumber: docs/experiment_summary.json -> dataset.target_stats.mean.
+// Update bersamaan dengan retraining model.
+export const DATASET_MEAN_ADR_EUR = 88.8;
+
+// Clamping range untuk multiplier kalibrasi.
+// Setelah fitur ``arrival_date_year`` di-drop dari training (lihat
+// ml_backend/src/preprocessing.py: EXTRAPOLATION_RISK_COLS), kasus terburuk
+// extrapolasi tahun sudah hilang. Bound di-relax dari [0.7, 1.5] ke
+// [0.5, 2.0] supaya model masih punya ruang ekspresi untuk kombinasi fitur
+// ekstrem (low-season + lead time besar + occupancy 0, dst.) tapi tetap
+// terbatas pada rentang harga yang masuk akal di pasar. Saat clamp aktif,
+// badge "Clamped" muncul di UI sebagai sinyal prediksi out-of-distribution.
+export const MIN_MULTIPLIER = 0.8;
+export const MAX_MULTIPLIER = 2.0;
+
+// Indonesian weekend localization layer.
+// Antonio dataset mendefinisikan weekend = Sabtu + Minggu dan koefisien
+// `stays_in_weekend_nights` tidak masuk top-10 fitur dominan pada subset
+// resort. Konvensi pasar Indonesia berbeda — premium berlaku pada Jumat
+// + Sabtu. Kalibrasi ini menambahkan uplift +5% per malam Jum/Sab,
+// dinormalisasi terhadap total malam stay. Magnitudo 5% disetel berdasar
+// koefisien `isFriSat` di sistem dynamic-pricing lokal (lib/ml-pricing.ts)
+// yang memberi day-of-week factor sekitar +5–6% dalam test produksi.
+export const FRISAT_NIGHT_UPLIFT = 0.05;
 
 export interface CalibrationInput {
   predictedEur: number;
   basePriceIdr: number;
+  /** Jumlah malam Jumat/Sabtu pada stay (konvensi Indonesia). */
+  frisatNights?: number;
+  /** Total malam stay (untuk normalisasi). */
+  totalNights?: number;
 }
 
 export interface CalibrationOutput {
@@ -31,9 +59,14 @@ export interface CalibrationOutput {
   basePriceIdr: number;
   predictedEur: number;
   datasetMeanEur: number;
-  multiplier: number;
+  rawMultiplier: number; // ratio EUR sebelum lokalisasi & clamp
+  weekendUplift: number; // pengali tambahan dari konvensi weekend Indonesia
+  multiplier: number; // multiplier final setelah lokalisasi & clamp
   deltaPct: number; // (multiplier - 1) * 100 — % deviasi dari harga normal
   band: PriceBand;
+  clamped: "low" | "high" | null; // alasan clamp jika terjadi
+  frisatNights: number;
+  totalNights: number;
 }
 
 export type PriceBand =
@@ -46,18 +79,47 @@ export type PriceBand =
 export function calibrate({
   predictedEur,
   basePriceIdr,
+  frisatNights = 0,
+  totalNights = 1,
 }: CalibrationInput): CalibrationOutput {
-  const multiplier = predictedEur / DATASET_MEAN_ADR_EUR;
+  const rawMultiplier = predictedEur / DATASET_MEAN_ADR_EUR;
+
+  // Lapisan lokalisasi Indonesia: uplift proporsional jumlah malam Jum/Sab.
+  // 1 dari 1 malam (semua weekend) -> +5%. 0 dari 1 malam (weekday) -> +0%.
+  // Diapply sebelum clamp supaya bound MIN/MAX_MULTIPLIER tetap mengikat
+  // hasil akhir.
+  const safeTotal = Math.max(1, totalNights);
+  const weekendUplift =
+    1 + FRISAT_NIGHT_UPLIFT * (frisatNights / safeTotal);
+
+  const beforeClamp = rawMultiplier * weekendUplift;
+
+  let multiplier = beforeClamp;
+  let clamped: "low" | "high" | null = null;
+  if (beforeClamp < MIN_MULTIPLIER) {
+    multiplier = MIN_MULTIPLIER;
+    clamped = "low";
+  } else if (beforeClamp > MAX_MULTIPLIER) {
+    multiplier = MAX_MULTIPLIER;
+    clamped = "high";
+  }
+
   const predictedIdr = Math.round(basePriceIdr * multiplier);
   const deltaPct = (multiplier - 1) * 100;
+
   return {
     predictedIdr,
     basePriceIdr,
     predictedEur,
     datasetMeanEur: DATASET_MEAN_ADR_EUR,
+    rawMultiplier,
+    weekendUplift,
     multiplier,
     deltaPct,
     band: bandOf(deltaPct),
+    clamped,
+    frisatNights,
+    totalNights: safeTotal,
   };
 }
 
