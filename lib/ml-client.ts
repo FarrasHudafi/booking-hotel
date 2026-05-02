@@ -1,100 +1,55 @@
 /**
  * Klien HTTP untuk ML backend (FastAPI).
  *
- * Mengekspos type-definition yang sinkron dengan Pydantic schema di
- * `ml_backend/api/schemas.py`, plus fungsi `predictPrice` dan `checkHealth`.
+ * Skema sinkron dengan ``ml_backend/api/schemas.py`` yang kini
+ * langsung memakai dataset lokal (dataset_hotel_dynamic_pricing.xlsx).
+ * Tidak ada lagi lapisan kalibrasi EUR -> IDR; backend mengembalikan
+ * harga prediksi dalam Rupiah secara langsung.
  */
 
-export type HotelType = "City Hotel" | "Resort Hotel";
+export type RoomType = "Standard" | "Superior" | "Deluxe" | "Suite";
 
-export type MealType = "BB" | "HB" | "FB" | "SC" | "Undefined";
-
-export type ArrivalMonth =
-  | "January"
-  | "February"
-  | "March"
-  | "April"
-  | "May"
-  | "June"
-  | "July"
-  | "August"
-  | "September"
-  | "October"
-  | "November"
-  | "December";
-
-export type MarketSegment =
-  | "Online TA"
-  | "Offline TA/TO"
-  | "Direct"
-  | "Corporate"
-  | "Groups"
-  | "Complementary"
-  | "Aviation"
-  | "Undefined";
-
-export type DistributionChannel =
-  | "TA/TO"
-  | "Direct"
-  | "Corporate"
-  | "GDS"
-  | "Undefined";
-
-export type CustomerType =
-  | "Transient"
-  | "Transient-Party"
-  | "Contract"
+export type Segment =
+  | "Leisure"
+  | "Business"
+  | "Family"
+  | "Couple"
   | "Group";
 
-export type DepositType = "No Deposit" | "Non Refund" | "Refundable";
+export type Channel =
+  | "OTA_Traveloka"
+  | "Website"
+  | "OTA_Booking"
+  | "Corporate"
+  | "Phone"
+  | "Walk-in";
 
-export type RoomType =
-  | "A"
-  | "B"
-  | "C"
-  | "D"
-  | "E"
-  | "F"
-  | "G"
-  | "H"
-  | "I"
-  | "K"
-  | "L"
-  | "P";
-
-export interface BookingInput {
-  hotel: HotelType;
-  lead_time: number;
-  arrival_date_year: number;
-  arrival_date_month: ArrivalMonth;
-  arrival_date_week_number: number;
-  arrival_date_day_of_month: number;
-  stays_in_weekend_nights: number;
-  stays_in_week_nights: number;
-  adults: number;
-  children: number;
-  babies: number;
-  meal: MealType;
-  country: string;
-  market_segment: MarketSegment;
-  distribution_channel: DistributionChannel;
-  is_repeated_guest: 0 | 1;
-  previous_cancellations: number;
-  previous_bookings_not_canceled: number;
-  reserved_room_type: RoomType;
-  assigned_room_type: RoomType;
-  booking_changes: number;
-  deposit_type: DepositType;
-  agent: number;
-  company: number;
-  days_in_waiting_list: number;
-  customer_type: CustomerType;
-  required_car_parking_spaces: number;
-  total_of_special_requests: number;
+export interface BookingRequest {
+  /** ISO yyyy-mm-dd */
+  check_in: string;
+  /** ISO yyyy-mm-dd */
+  check_out: string;
+  room_type: RoomType;
+  /** Harga base kamar dalam IDR (sebelum dynamic pricing). */
+  base_price: number;
+  /** 0..1 (opsional — jika tidak diisi backend akan memakai proxy). */
+  occupancy_rate?: number;
+  total_guests?: number;
+  segment?: Segment;
+  channel?: Channel;
 }
 
 export interface PredictionResponse {
-  predicted_adr: number;
+  predicted_price: number;
+  base_price: number;
+  raw_price_ratio: number;
+  clamped_price_ratio: number;
+  delta_rupiah: number;
+  delta_pct: number;
+  night_date: string;
+  lead_time_days: number;
+  length_of_stay: number;
+  occupancy_rate_used: number;
   currency: string;
   model_version: string;
   status: string;
@@ -217,7 +172,7 @@ async function request<T>(
 }
 
 export function predictPrice(
-  input: BookingInput,
+  input: BookingRequest,
 ): Promise<PredictionResponse> {
   return request<PredictionResponse>("/predict", {
     method: "POST",
