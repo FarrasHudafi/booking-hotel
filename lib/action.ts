@@ -2,6 +2,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { quoteDynamicPriceForRoom } from "@/lib/data";
+import { MLApiError } from "@/lib/ml-client";
 import { ContactSchema, ReserveSchema, RoomSchema } from "@/lib/zod";
 import { del } from "@vercel/blob";
 import { differenceInCalendarDays } from "date-fns";
@@ -159,11 +160,25 @@ export const quoteDynamicPrice = async (
   if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
     return { error: "Invalid dates" as const };
   }
-  const quote = await quoteDynamicPriceForRoom(roomId, checkIn, checkOut, new Date(), promoCode);
-  if (!quote) {
-    return { error: "Room not found" as const };
+  try {
+    const quote = await quoteDynamicPriceForRoom(
+      roomId,
+      checkIn,
+      checkOut,
+      new Date(),
+      promoCode,
+    );
+    if (!quote) {
+      return { error: "Room not found" as const };
+    }
+    return { ok: true as const, quote };
+  } catch (err) {
+    const message =
+      err instanceof MLApiError
+        ? err.message
+        : "Gagal menghitung harga dinamis. Coba lagi sebentar.";
+    return { error: message };
   }
-  return { ok: true as const, quote };
 };
 
 export const createReserve = async (
@@ -217,13 +232,22 @@ export const createReserve = async (
     return { messageDate: "Selected dates are unavailable" };
   }
 
-  const pricing = await quoteDynamicPriceForRoom(
-    roomId,
-    startDate,
-    endDate,
-    new Date(),
-    promoCode,
-  );
+  let pricing: Awaited<ReturnType<typeof quoteDynamicPriceForRoom>>;
+  try {
+    pricing = await quoteDynamicPriceForRoom(
+      roomId,
+      startDate,
+      endDate,
+      new Date(),
+      promoCode,
+    );
+  } catch (err) {
+    const message =
+      err instanceof MLApiError
+        ? err.message
+        : "Gagal menghitung harga dinamis. Coba lagi sebentar.";
+    return { message };
+  }
   if (!pricing) {
     return { message: "Unable to compute price for this room" };
   }

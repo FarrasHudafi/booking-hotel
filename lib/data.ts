@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { addDays, differenceInCalendarDays } from "date-fns";
+import { addDays, differenceInCalendarDays, format } from "date-fns";
 import {
   computeAvailabilityByDateRange,
   type AvailabilityByType,
@@ -12,11 +12,12 @@ import {
   estimatePriceElasticityOfDemand,
 } from "@/lib/dynamic-pricing";
 import { applyPromoDiscount } from "@/lib/promo";
+import { getHolidaysInRange } from "@/lib/ml-features";
 import {
-  predictMLPrice,
-  getHolidaysInRange,
-  type MLPricePrediction,
-} from "@/lib/ml-pricing";
+  inferRoomType,
+  predictPrice,
+  type PredictionResponse,
+} from "@/lib/ml-client";
 
 export const getAmenities = async () => {
   const session = await auth();
@@ -378,35 +379,23 @@ export const quoteDynamicPriceForRoom = async (
   const room = await prisma.room.findUnique({ where: { id: roomId } });
   if (!room) return null;
 
-  const { occupancyRate } = await getOccupancyForStayWindow(checkIn, checkOut);
-
-  // Pricing 100% via ridge regression (lib/ml-pricing.ts).
-  const mlPrediction: MLPricePrediction = await predictMLPrice({
-    basePrice: room.price,
-    checkIn,
-    checkOut,
-    bookingDate,
-    occupancyRate,
+  // Panggil FastAPI Ridge (model `ridge-id-v1`) — sumber yang sama dengan
+  // halaman /predict, parameter dikirim identik supaya harga match.
+  const prediction: PredictionResponse = await predictPrice({
+    check_in: format(checkIn, "yyyy-MM-dd"),
+    check_out: format(checkOut, "yyyy-MM-dd"),
+    room_type: inferRoomType(room.name),
+    base_price: room.price,
+    total_guests: Math.max(1, room.capacity ?? 2),
+    segment: "Leisure",
+    channel: "Website",
   });
 
-  const breakdown = {
-    basePricePerNight: mlPrediction.basePrice,
-    effectivePricePerNight: mlPrediction.predictedPrice,
-    combinedFactor: mlPrediction.breakdown.combinedMultiplier,
-    leadTimeFactor: mlPrediction.breakdown.leadTimeFactor,
-    peakSeasonFactor: mlPrediction.breakdown.seasonalFactor,
-    demandFactor: mlPrediction.breakdown.demandFactor,
-    priceElasticityEstimate: 1 - mlPrediction.confidence,
-    recommendedRevPARTarget: mlPrediction.predictedPrice * 0.85,
-    averageOccupancyRate: occupancyRate,
-    stayNights: Math.max(1, differenceInCalendarDays(checkOut, checkIn)),
-    leadDays: Math.max(0, differenceInCalendarDays(checkIn, bookingDate)),
-  };
-
-  const subtotalStay = breakdown.stayNights * breakdown.effectivePricePerNight;
+  const stayNights = Math.max(1, differenceInCalendarDays(checkOut, checkIn));
+  const effectivePricePerNight = prediction.predicted_price;
+  const subtotalStay = stayNights * effectivePricePerNight;
   const promo = applyPromoDiscount(subtotalStay, promoCode);
 
-  // Dapatkan informasi holiday jika ada
   const holidays = getHolidaysInRange(checkIn, checkOut);
   const holidayInfo =
     holidays.length > 0
@@ -417,9 +406,22 @@ export const quoteDynamicPriceForRoom = async (
         }))
       : null;
 
+  const ratio = prediction.clamped_price_ratio;
+  const deltaPct = prediction.delta_pct;
+
   return {
     roomId: room.id,
-    ...breakdown,
+    basePricePerNight: prediction.base_price,
+    effectivePricePerNight,
+    combinedFactor: ratio,
+    leadTimeFactor: 1,
+    peakSeasonFactor: 1,
+    demandFactor: 1,
+    priceElasticityEstimate: 0,
+    recommendedRevPARTarget: effectivePricePerNight * 0.85,
+    averageOccupancyRate: prediction.occupancy_rate_used,
+    stayNights,
+    leadDays: prediction.lead_time_days,
     totalStay: subtotalStay,
     promoCode: promo.promoCode,
     promoDescription: promo.promoDescription,
@@ -429,13 +431,28 @@ export const quoteDynamicPriceForRoom = async (
     totalAfterDiscount: promo.totalAfterDiscount,
     promoRawInputCode: promo.rawInputCode,
     promoError: promo.error ?? null,
-    // ML-specific data — pricing selalu ML (ridge regression). Flag dipertahankan
-    // agar consumer (components/reserve-form.tsx) tidak perlu diubah.
     useMLPricing: true,
     mlPrediction: {
-      confidence: mlPrediction.confidence,
-      factors: mlPrediction.factors,
-      breakdown: mlPrediction.breakdown,
+      confidence: 1,
+      factors: [
+        {
+          name: "Dynamic ratio",
+          impact: ratio,
+          weight: 0,
+          description: `Model ${prediction.model_version} · ${
+            deltaPct >= 0 ? "+" : ""
+          }${deltaPct.toFixed(1)}% vs base price`,
+        },
+      ],
+      breakdown: {
+        dayOfWeekFactor: 1,
+        holidayFactor: 1,
+        schoolHolidayFactor: 1,
+        seasonalFactor: 1,
+        demandFactor: 1,
+        leadTimeFactor: 1,
+        combinedMultiplier: ratio,
+      },
     },
     holidayInfo,
   };

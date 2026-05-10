@@ -2,31 +2,9 @@
 
 import { FC, FormEvent, useMemo, useState } from "react";
 import { clsx } from "clsx";
-import { BookingRequest, RoomType } from "@/lib/ml-client";
+import { BookingRequest, inferRoomType } from "@/lib/ml-client";
 
-// ---------------------------------------------------------------------------
-// Pemetaan nama kamar dari basis data ke kategori RoomType pada dataset
-// dynamic_pricing lokal. Pencocokan keyword case-insensitive; fallback ke
-// "Standard" jika tidak ada keyword yang cocok.
-// ---------------------------------------------------------------------------
-const ROOM_KEYWORDS: { keyword: string; type: RoomType }[] = [
-  { keyword: "suite", type: "Suite" },
-  { keyword: "deluxe", type: "Deluxe" },
-  { keyword: "executive", type: "Deluxe" },
-  { keyword: "superior", type: "Superior" },
-  { keyword: "twin", type: "Superior" },
-  { keyword: "double", type: "Superior" },
-  { keyword: "standard", type: "Standard" },
-  { keyword: "single", type: "Standard" },
-];
-
-export function inferRoomType(name: string): RoomType {
-  const lower = name.toLowerCase();
-  for (const { keyword, type } of ROOM_KEYWORDS) {
-    if (lower.includes(keyword)) return type;
-  }
-  return "Standard";
-}
+export { inferRoomType };
 
 export interface RoomLite {
   id: string;

@@ -9,6 +9,25 @@
 
 export type RoomType = "Standard" | "Superior" | "Deluxe" | "Suite";
 
+const ROOM_KEYWORDS: { keyword: string; type: RoomType }[] = [
+  { keyword: "suite", type: "Suite" },
+  { keyword: "deluxe", type: "Deluxe" },
+  { keyword: "executive", type: "Deluxe" },
+  { keyword: "superior", type: "Superior" },
+  { keyword: "twin", type: "Superior" },
+  { keyword: "double", type: "Superior" },
+  { keyword: "standard", type: "Standard" },
+  { keyword: "single", type: "Standard" },
+];
+
+export function inferRoomType(name: string): RoomType {
+  const lower = name.toLowerCase();
+  for (const { keyword, type } of ROOM_KEYWORDS) {
+    if (lower.includes(keyword)) return type;
+  }
+  return "Standard";
+}
+
 export type Segment =
   | "Leisure"
   | "Business"
