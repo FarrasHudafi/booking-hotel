@@ -26,3 +26,8 @@ export const ReserveSchema = object({
   name: string().min(1, "Name is required"),
   phone: string().min(10, "Fill with a valid phone number"),
 });
+
+export const ReviewSchema = object({
+  rating: coerce.number().int().min(1).max(5),
+  comment: string().max(800).optional(),
+});

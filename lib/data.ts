@@ -79,6 +79,71 @@ export const getRoomDetailById = async (roomId: string) => {
   }
 };
 
+export const getRoomReviewStats = async (roomId: string) => {
+  try {
+    const result = await prisma.review.aggregate({
+      where: { roomId },
+      _avg: { rating: true },
+      _count: true,
+    });
+    return {
+      avg: result._avg.rating ?? null,
+      count: result._count,
+    };
+  } catch (error) {
+    console.log(error);
+    return { avg: null as number | null, count: 0 };
+  }
+};
+
+export const getRoomReviewsForRoom = async (roomId: string, take = 50) => {
+  try {
+    return await prisma.review.findMany({
+      where: { roomId },
+      orderBy: { createdAt: "desc" },
+      take,
+      include: {
+        User: { select: { name: true, email: true, image: true } },
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
+};
+
+export const getReviewByReservationId = async (reservationId: string) => {
+  try {
+    return await prisma.review.findUnique({
+      where: { reservationId },
+    });
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+};
+
+/** Ulasan per reservasi (satu kali per booking). */
+export const getReviewsByReservationIds = async (
+  userId: string,
+  reservationIds: string[],
+) => {
+  const unique = [...new Set(reservationIds)];
+  if (unique.length === 0) {
+    return new Map<string, { rating: number; comment: string | null }>();
+  }
+  try {
+    const rows = await prisma.review.findMany({
+      where: { userId, reservationId: { in: unique } },
+      select: { reservationId: true, rating: true, comment: true },
+    });
+    return new Map(rows.map((r) => [r.reservationId, r]));
+  } catch (error) {
+    console.log(error);
+    return new Map<string, { rating: number; comment: string | null }>();
+  }
+};
+
 export const getReservationById = async (id: string) => {
   try {
     const result = await prisma.reservation.findUnique({

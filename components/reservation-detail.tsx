@@ -1,4 +1,6 @@
-import { getReservationById } from "@/lib/data";
+import { getReservationById, getReviewByReservationId } from "@/lib/data";
+import { canWriteRoomReviewFromBooking } from "@/lib/review-eligibility";
+import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
@@ -10,15 +12,26 @@ const ReservationDetail = async ({
 }: {
   reservationId: string;
 }) => {
+  const session = await auth();
   const reservation = await getReservationById(reservationId);
   if (!reservation) return notFound();
+
+  const userId = session?.user?.id;
+  const isOwner = Boolean(userId) && reservation.userId === userId;
+  const review =
+    isOwner ? await getReviewByReservationId(reservation.id) : null;
+  const checkoutOk = canWriteRoomReviewFromBooking({
+    paymentStatus: reservation.Payment?.status,
+    endDate: reservation.endDate,
+  });
+  const status = (reservation.Payment?.status ?? "pending").toLowerCase();
+  const isPaid = status === "paid";
+  const showReviewSection = isOwner && isPaid;
 
   const nights = differenceInCalendarDays(
     reservation.endDate,
     reservation.startDate
   );
-  const status = (reservation.Payment?.status ?? "pending").toLowerCase();
-  const isPaid = status === "paid";
   const isPending = status === "pending";
   const midtransOrderId = reservation.Payment?.midtransOrderId ?? null;
   const midtransStatus =
@@ -278,6 +291,38 @@ const ReservationDetail = async ({
             </table>
           </div>
         </div>
+
+        {showReviewSection ? (
+          <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.15em] text-orange-400 uppercase mb-1">
+                Ulasan
+              </p>
+              <p className="text-sm text-gray-700">
+                {review
+                  ? "Anda sudah mengirim ulasan untuk pemesanan ini (satu kali)."
+                  : checkoutOk
+                    ? "Bagikan pengalaman menginap (satu ulasan per reservasi)."
+                    : "Setelah tanggal checkout lewat, Anda dapat menulis satu ulasan untuk reservasi ini."}
+              </p>
+            </div>
+            {review ? (
+              <Link
+                href={`/myreservation/${reservation.id}/review`}
+                className="inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-800 text-sm font-semibold hover:bg-gray-50 active:scale-95 transition-all duration-150"
+              >
+                Lihat ulasan
+              </Link>
+            ) : checkoutOk ? (
+              <Link
+                href={`/myreservation/${reservation.id}/review`}
+                className="inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 active:scale-95 transition-all duration-150"
+              >
+                Tulis ulasan
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Actions */}
         {isPending && (

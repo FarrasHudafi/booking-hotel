@@ -1,9 +1,15 @@
 "use server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { quoteDynamicPriceForRoom } from "@/lib/data";
 import { MLApiError } from "@/lib/ml-client";
-import { ContactSchema, ReserveSchema, RoomSchema } from "@/lib/zod";
+import {
+  ContactSchema,
+  ReserveSchema,
+  ReviewSchema,
+  RoomSchema,
+} from "@/lib/zod";
 import { del } from "@vercel/blob";
 import { differenceInCalendarDays } from "date-fns";
 import { revalidatePath } from "next/cache";
@@ -287,4 +293,117 @@ export const createReserve = async (
     console.log(error);
   }
   redirect(`/checkout/${reservationId}`);
+};
+
+export const submitRoomReview = async (
+  reservationId: string,
+  prevState: unknown,
+  formData: FormData,
+) => {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return {
+      error: { _form: ["Anda harus masuk untuk memberi ulasan."] },
+    };
+  }
+
+  const reservation = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+    include: { Payment: true },
+  });
+  if (!reservation || reservation.userId !== session.user.id) {
+    return { error: { _form: ["Reservasi tidak ditemukan."] } };
+  }
+
+  const paid =
+    (reservation.Payment?.status ?? "").toLowerCase() === "paid";
+  if (!paid) {
+    return {
+      error: {
+        _form: [
+          "Ulasan hanya bisa dikirim jika pembayaran sudah lunas (bukan pending atau gagal).",
+        ],
+      },
+    };
+  }
+
+  const now = new Date();
+  if (reservation.endDate > now) {
+    return {
+      error: {
+        _form: [
+          "Ulasan bisa dikirim setelah tanggal checkout reservasi ini lewat.",
+        ],
+      },
+    };
+  }
+
+  const existing = await prisma.review.findUnique({
+    where: { reservationId },
+    select: { id: true },
+  });
+  if (existing) {
+    return {
+      error: {
+        _form: [
+          "Anda sudah pernah mengirim ulasan untuk reservasi ini (satu kali per pemesanan).",
+        ],
+      },
+    };
+  }
+
+  const raw = {
+    rating: formData.get("rating"),
+    comment: formData.get("comment"),
+  };
+  const parsed = ReviewSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const commentRaw = parsed.data.comment?.trim() ?? "";
+  const comment = commentRaw.length > 0 ? commentRaw : null;
+  const roomId = reservation.roomId;
+
+  try {
+    await prisma.review.create({
+      data: {
+        reservationId,
+        roomId,
+        userId: session.user.id,
+        rating: parsed.data.rating,
+        comment,
+      },
+    });
+    revalidatePath(`/room/${roomId}`);
+    revalidatePath("/myreservation");
+    revalidatePath(`/myreservation/${reservationId}`);
+    revalidatePath(`/myreservation/${reservationId}/review`);
+    return { message: "Ulasan Anda telah dikirim." };
+  } catch (error) {
+    console.error("submitRoomReview", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return {
+          error: {
+            _form: [
+              "Ulasan untuk reservasi ini sudah ada (satu kali per pemesanan).",
+            ],
+          },
+        };
+      }
+      if (error.code === "P2021") {
+        return {
+          error: {
+            _form: [
+              "Tabel ulasan belum tersedia di database. Jalankan migrasi Prisma (migrate deploy) di server.",
+            ],
+          },
+        };
+      }
+    }
+    return { error: { _form: ["Gagal menyimpan ulasan. Coba lagi."] } };
+  }
 };

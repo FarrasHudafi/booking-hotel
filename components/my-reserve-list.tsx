@@ -1,13 +1,26 @@
 import Image from "next/image";
-import { getReservationByUserId } from "@/lib/data";
+import {
+  getReservationByUserId,
+  getReviewsByReservationIds,
+} from "@/lib/data";
+import { canWriteRoomReviewFromBooking } from "@/lib/review-eligibility";
+import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
 import Link from "next/link";
 
 const MyReserveList = async () => {
+  const session = await auth();
   const reservations = await getReservationByUserId();
   if (!reservations) return notFound();
+
+  const userId = session?.user?.id;
+  const reservationIds = reservations.map((r) => r.id);
+  const reviewsByReservation =
+    userId && reservationIds.length > 0
+      ? await getReviewsByReservationIds(userId, reservationIds)
+      : new Map<string, { rating: number; comment: string | null }>();
 
   return (
     <div className="space-y-5">
@@ -18,6 +31,13 @@ const MyReserveList = async () => {
         const isFailure = status === "failure";
         const isPending = status === "pending";
         const showViewDetails = isPaid || isFailure || isPending;
+        const checkoutOk = canWriteRoomReviewFromBooking({
+          paymentStatus: item.Payment?.status,
+          endDate: item.endDate,
+        });
+        const hasReview = reviewsByReservation.has(item.id);
+        const showTulisUlasan = isPaid && checkoutOk && !hasReview;
+        const showLihatUlasan = isPaid && hasReview;
 
         return (
           <div
@@ -93,7 +113,7 @@ const MyReserveList = async () => {
                 </div>
 
                 {/* CTA */}
-                <div className="flex justify-end mt-4">
+                <div className="flex flex-wrap justify-end gap-2 mt-4">
                   {showViewDetails ? (
                     <Link
                       href={`/myreservation/${item.id}`}
@@ -137,6 +157,22 @@ const MyReserveList = async () => {
                       </svg>
                     </Link>
                   )}
+                  {showTulisUlasan ? (
+                    <Link
+                      href={`/myreservation/${item.id}/review`}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-xl border-2 border-gray-900 text-gray-900 text-sm font-semibold hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                    >
+                      Tulis ulasan
+                    </Link>
+                  ) : null}
+                  {showLihatUlasan ? (
+                    <Link
+                      href={`/myreservation/${item.id}/review`}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-xl border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50 active:scale-95 transition-all duration-150"
+                    >
+                      Lihat ulasan
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             </div>

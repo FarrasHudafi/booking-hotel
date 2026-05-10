@@ -25,6 +25,7 @@ model Room {
   updatedAt     DateTime        @updatedAt
   RoomAmenities RoomAmenities[]
   Reservations  Reservation[]
+  Reviews       Review[]
 }
 
 model Amenities {
@@ -55,6 +56,7 @@ model Reservation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   Payment   Payment?
+  Review    Review?
 }
 
 model Payment {
@@ -83,9 +85,24 @@ model User {
   phone         String?
   accounts      Account[]
   Reservations  Reservation[]
+  Reviews       Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id             String        @id @default(cuid())
+  reservationId  String        @unique
+  Reservation    Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rating         Int
+  comment        String?       @db.Text
+  roomId         String
+  Room           Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId         String
+  User           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model Account {

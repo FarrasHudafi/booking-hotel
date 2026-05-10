@@ -1,5 +1,9 @@
 import Image from "next/image";
-import { getRoomDetailById, getDisableRoomById } from "@/lib/data";
+import {
+  getDisableRoomById,
+  getRoomDetailById,
+  getRoomReviewStats,
+} from "@/lib/data";
 import { notFound } from "next/navigation";
 import {
   IoCheckmarkCircle,
@@ -13,11 +17,20 @@ import { formatCurrency } from "@/lib/utils";
 import ReserveForm from "./reserve-form";
 import Card from "@/components/card";
 import { getSimilarRooms } from "@/lib/recommendation";
+import RoomReviewsSection from "@/components/room-reviews-section";
+
+function reviewQualityLabel(avg: number) {
+  if (avg >= 4.5) return "Luar biasa";
+  if (avg >= 4) return "Sangat baik";
+  if (avg >= 3) return "Baik";
+  return "Cukup";
+}
 
 const RoomDetail = async ({ roomId }: { roomId: string }) => {
-  const [room, disableDate] = await Promise.all([
+  const [room, disableDate, reviewStats] = await Promise.all([
     getRoomDetailById(roomId),
     getDisableRoomById(roomId),
+    getRoomReviewStats(roomId),
   ]);
 
   if (!room || !disableDate) return notFound();
@@ -47,9 +60,17 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 bg-yellow-400 text-gray-900 text-xs font-semibold px-3 py-1 rounded-full">
-                      <IoStarOutline className="size-3.5" />
-                      4.9 · Excellent
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${
+                        reviewStats.count === 0
+                          ? "bg-gray-100 text-gray-600"
+                          : "bg-yellow-400 text-gray-900"
+                      }`}
+                    >
+                      <IoStarOutline className="size-3.5 shrink-0" />
+                      {reviewStats.count === 0 || reviewStats.avg === null
+                        ? "Belum ada ulasan"
+                        : `${reviewStats.avg.toFixed(1)} · ${reviewQualityLabel(reviewStats.avg)} · ${reviewStats.count} ulasan`}
                     </span>
                   </div>
                   <h1 className="text-4xl font-bold text-gray-900">
@@ -122,6 +143,9 @@ const RoomDetail = async ({ roomId }: { roomId: string }) => {
               ))}
             </div>
           </div>
+
+          {/* Reviews */}
+          <RoomReviewsSection roomId={roomId} />
 
           {/* Similar Rooms */}
           {similarRooms.length > 0 ? (
