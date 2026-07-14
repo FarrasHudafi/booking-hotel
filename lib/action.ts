@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { quoteDynamicPriceForRoom } from "@/lib/data";
+import { sendReviewFeedbackEmails } from "@/lib/review-feedback-email";
 import { MLApiError } from "@/lib/ml-client";
 import {
   ContactSchema,
@@ -309,7 +310,10 @@ export const submitRoomReview = async (
 
   const reservation = await prisma.reservation.findUnique({
     where: { id: reservationId },
-    include: { Payment: true },
+    include: {
+      Payment: true,
+      Room: { select: { name: true } },
+    },
   });
   if (!reservation || reservation.userId !== session.user.id) {
     return { error: { _form: ["Reservasi tidak ditemukan."] } };
@@ -381,7 +385,35 @@ export const submitRoomReview = async (
     revalidatePath("/myreservation");
     revalidatePath(`/myreservation/${reservationId}`);
     revalidatePath(`/myreservation/${reservationId}/review`);
-    return { message: "Ulasan Anda telah dikirim." };
+
+    let message = "Ulasan Anda telah dikirim.";
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, name: true },
+    });
+    const guestEmail = dbUser?.email ?? session.user.email;
+
+    if (guestEmail) {
+      const { guestSent } = await sendReviewFeedbackEmails({
+        guestEmail,
+        guestName: dbUser?.name ?? session.user.name ?? null,
+        roomName: reservation.Room.name,
+        rating: parsed.data.rating,
+        comment,
+        reservationId,
+      });
+      if (guestSent) {
+        message += ` Konfirmasi dikirim ke ${guestEmail}.`;
+      } else {
+        message +=
+          " Cek folder Spam/Promosi jika konfirmasi email belum masuk.";
+      }
+    } else {
+      message +=
+        " Email konfirmasi tidak terkirim (alamat email akun tidak ditemukan).";
+    }
+
+    return { message };
   } catch (error) {
     console.error("submitRoomReview", error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

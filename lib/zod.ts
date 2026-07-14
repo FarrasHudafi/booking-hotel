@@ -31,3 +31,14 @@ export const ReviewSchema = object({
   rating: coerce.number().int().min(1).max(5),
   comment: string().max(800).optional(),
 });
+
+export const StartChatSchema = object({
+  name: string().min(2, "Name must be at least 2 characters"),
+  email: string().email("Invalid email address"),
+});
+
+export const SendChatMessageSchema = object({
+  body: string()
+    .min(1, "Message cannot be empty")
+    .max(1000, "Message must be less than 1000 characters"),
+});

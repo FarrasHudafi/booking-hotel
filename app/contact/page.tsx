@@ -60,8 +60,14 @@ const ContactPage = () => {
               </li>
             </ul>
           </div>
-          {/* Contact Form */}
+          {/* Live chat */}
           <div className="flex flex-col">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">
+              Chat With Us
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Chat with our team live — replies appear here in real time.
+            </p>
             <ContactForm />
           </div>
         </div>

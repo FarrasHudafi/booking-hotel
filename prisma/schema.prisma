@@ -135,3 +135,28 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model ChatConversation {
+  id            String        @id @default(cuid())
+  guestName     String
+  guestEmail    String
+  sessionToken  String        @unique
+  userId        String?
+  status        String        @default("open")
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  messages      ChatMessage[]
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  body           String           @db.Text
+  senderUserId   String?
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+}

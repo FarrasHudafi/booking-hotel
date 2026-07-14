@@ -63,6 +63,14 @@ const Navlink = () => {
                   Manage Room
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/admin/chat"
+                  className="px-4 py-2 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-all duration-200"
+                >
+                  Live Chat
+                </Link>
+              </li>
             </>
           )}
         </ul>
@@ -159,6 +167,15 @@ const Navlink = () => {
                   className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Manage Room
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/admin/chat"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  CHAT
                 </Link>
               </li>
             </>
