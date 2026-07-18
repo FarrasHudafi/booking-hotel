@@ -296,11 +296,20 @@ export const createReserve = async (
   redirect(`/checkout/${reservationId}`);
 };
 
+type ReviewFormState = {
+  message?: string;
+  error?: {
+    rating?: string[];
+    comment?: string[];
+    _form?: string[];
+  };
+} | null;
+
 export const submitRoomReview = async (
   reservationId: string,
-  prevState: unknown,
+  prevState: ReviewFormState,
   formData: FormData,
-) => {
+): Promise<ReviewFormState> => {
   const session = await auth();
   if (!session?.user?.id) {
     return {
